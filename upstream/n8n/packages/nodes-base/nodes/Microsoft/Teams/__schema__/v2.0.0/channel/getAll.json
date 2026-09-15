@@ -1,0 +1,30 @@
+{
+    "type": "object",
+    "properties": {
+        "createdDateTime": {
+            "type": "string"
+        },
+        "displayName": {
+            "type": "string"
+        },
+        "id": {
+            "type": "string"
+        },
+        "isArchived": {
+            "type": "boolean"
+        },
+        "layoutType": {
+            "type": "null"
+        },
+        "membershipType": {
+            "type": "string"
+        },
+        "tenantId": {
+            "type": "string"
+        },
+        "webUrl": {
+            "type": "string"
+        }
+    },
+    "version": 4
+}

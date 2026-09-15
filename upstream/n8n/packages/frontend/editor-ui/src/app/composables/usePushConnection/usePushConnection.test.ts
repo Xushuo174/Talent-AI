@@ -1,0 +1,180 @@
+import { usePushConnection } from '@/app/composables/usePushConnection';
+import {
+	testWebhookReceived,
+	builderCreditsUpdated,
+	executionStarted,
+	agentNodeProgress,
+} from '@/app/composables/usePushConnection/handlers';
+import type { TestWebhookReceived } from '@n8n/api-types/push/webhook';
+import type { BuilderCreditsPushMessage } from '@n8n/api-types/push/builder-credits';
+import type { AgentNodeProgress, PushMessage } from '@n8n/api-types';
+import { pushHandlerRegistry } from '@n8n/frontend-module-sdk';
+import { useRouter } from 'vue-router';
+import type { OnPushMessageHandler } from '@/app/stores/pushConnection.store';
+import { createPinia, setActivePinia } from 'pinia';
+
+const removeEventListener = vi.fn();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const addEventListener = vi.fn((_handler: OnPushMessageHandler) => removeEventListener);
+
+vi.mock('@/app/stores/pushConnection.store', () => ({
+	usePushConnectionStore: () => ({
+		addEventListener,
+	}),
+}));
+
+vi.mock('@/app/composables/usePushConnection/handlers', () => ({
+	testWebhookDeleted: vi.fn(),
+	testWebhookReceived: vi.fn(),
+	reloadNodeType: vi.fn(),
+	removeNodeType: vi.fn(),
+	nodeDescriptionUpdated: vi.fn(),
+	nodeExecuteBefore: vi.fn(),
+	nodeExecuteAfter: vi.fn(),
+	nodeExecuteAfterData: vi.fn(),
+	executionStarted: vi.fn(),
+	executionWaiting: vi.fn(),
+	sendWorkerStatusMessage: vi.fn(),
+	sendConsoleMessage: vi.fn(),
+	workflowFailedToActivate: vi.fn(),
+	workflowPartiallyActivated: vi.fn(),
+	executionFinished: vi.fn(),
+	executionRecovered: vi.fn(),
+	workflowActivated: vi.fn(),
+	workflowDeactivated: vi.fn(),
+	collaboratorsChanged: vi.fn(),
+	builderCreditsUpdated: vi.fn(),
+	agentNodeProgress: vi.fn(),
+}));
+
+vi.mock('vue-router', async (importOriginal) => {
+	return {
+		...(await importOriginal()),
+		useRouter: vi.fn().mockReturnValue({
+			push: vi.fn(),
+		}),
+		useRoute: vi.fn(),
+	};
+});
+
+describe('usePushConnection composable', () => {
+	let pushConnection: ReturnType<typeof usePushConnection>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		pushHandlerRegistry.clear();
+
+		setActivePinia(createPinia());
+
+		const router = useRouter();
+		pushConnection = usePushConnection({ router });
+	});
+
+	it('should register an event listener on initialize', () => {
+		pushConnection.initialize();
+		expect(addEventListener).toHaveBeenCalledTimes(1);
+	});
+
+	it('should call the correct handler when an event is received', async () => {
+		pushConnection.initialize();
+
+		// Get the event callback which was registered via addEventListener.
+		const handler = addEventListener.mock.calls[0][0];
+
+		// Create a test event for one of the handled types.
+		// In this test, we simulate the event type 'testWebhookReceived'.
+		const testEvent: TestWebhookReceived = {
+			type: 'testWebhookReceived',
+			data: {
+				executionId: '123',
+				workflowId: '456',
+			},
+		};
+
+		// Call the event callback with our test event.
+		handler(testEvent);
+
+		// Allow any microtasks to complete.
+		await Promise.resolve();
+
+		// Verify that the correct handler was called.
+		expect(testWebhookReceived).toHaveBeenCalledTimes(1);
+		expect(testWebhookReceived).toHaveBeenCalledWith(testEvent, expect.any(Object));
+	});
+
+	it('yields a push type a module owns, and never runs the handler itself', async () => {
+		const moduleHandler = vi.fn();
+		pushHandlerRegistry.register('executionStarted', moduleHandler);
+
+		pushConnection.initialize();
+
+		const handler = addEventListener.mock.calls[0][0];
+		const testEvent = {
+			type: 'executionStarted',
+			data: { executionId: '123' },
+		} as unknown as PushMessage;
+
+		handler(testEvent);
+		await Promise.resolve();
+
+		expect(executionStarted).not.toHaveBeenCalled();
+		expect(moduleHandler).not.toHaveBeenCalled();
+	});
+
+	it('should call removeEventListener when terminate is called', () => {
+		pushConnection.initialize();
+		pushConnection.terminate();
+
+		expect(removeEventListener).toHaveBeenCalledTimes(1);
+	});
+
+	it('routes agent capability progress to its execution-scoped handler', async () => {
+		pushConnection.initialize();
+		const handler = addEventListener.mock.calls[0][0];
+		const event: AgentNodeProgress = {
+			type: 'agentNodeProgress',
+			data: {
+				executionId: 'exec-1',
+				nodeId: 'node-1',
+				nodeName: 'Message an Agent',
+				runIndex: 0,
+				itemIndex: 0,
+				sequenceNumber: 0,
+				toolCallId: 'tc-1',
+				capability: { kind: 'tool', name: 'lookup' },
+				status: 'running',
+			},
+		};
+
+		handler(event);
+		await Promise.resolve();
+
+		expect(agentNodeProgress).toHaveBeenCalledWith(event, expect.any(Object));
+	});
+
+	it('should handle updateBuilderCredits event correctly', async () => {
+		pushConnection.initialize();
+
+		// Get the event callback which was registered via addEventListener.
+		const handler = addEventListener.mock.calls[0][0];
+
+		// Create a test event for updateBuilderCredits.
+		const testEvent: BuilderCreditsPushMessage = {
+			type: 'updateBuilderCredits',
+			data: {
+				creditsQuota: 1000,
+				creditsClaimed: 250,
+			},
+		};
+
+		// Call the event callback with our test event.
+		handler(testEvent);
+
+		// Allow any microtasks to complete.
+		await Promise.resolve();
+
+		// Verify that the correct handler was called.
+		expect(builderCreditsUpdated).toHaveBeenCalledTimes(1);
+		expect(builderCreditsUpdated).toHaveBeenCalledWith(testEvent);
+	});
+});

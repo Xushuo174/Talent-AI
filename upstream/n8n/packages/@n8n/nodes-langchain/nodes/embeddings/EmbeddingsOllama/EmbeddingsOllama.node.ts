@@ -1,0 +1,81 @@
+import { OllamaEmbeddings } from '@langchain/ollama';
+import {
+	assertCredentialAllowsUrl,
+	NodeConnectionTypes,
+	type INodeType,
+	type INodeTypeDescription,
+	type ISupplyDataFunctions,
+	type SupplyData,
+} from 'n8n-workflow';
+
+import { logWrapper, getConnectionHintNoticeField, proxyFetch } from '@n8n/ai-utilities';
+
+import { ollamaDescription, ollamaModel } from '../../llms/LMOllama/description';
+
+export class EmbeddingsOllama implements INodeType {
+	description: INodeTypeDescription = {
+		displayName: 'Embeddings Ollama',
+		name: 'embeddingsOllama',
+		icon: 'file:ollama.svg',
+		group: ['transform'],
+		version: 1,
+		description: 'Use Ollama Embeddings',
+		defaults: {
+			name: 'Embeddings Ollama',
+		},
+		...ollamaDescription,
+		codex: {
+			categories: ['AI'],
+			subcategories: {
+				AI: ['Embeddings'],
+			},
+			resources: {
+				primaryDocumentation: [
+					{
+						url: 'https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.embeddingsollama/',
+					},
+				],
+			},
+		},
+
+		inputs: [],
+
+		outputs: [NodeConnectionTypes.AiEmbedding],
+		outputNames: ['Embeddings'],
+		properties: [getConnectionHintNoticeField([NodeConnectionTypes.AiVectorStore]), ollamaModel],
+	};
+
+	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
+		this.logger.debug('Supply data for embeddings Ollama');
+		const modelName = this.getNodeParameter('model', itemIndex) as string;
+		const credentials = await this.getCredentials('ollamaApi');
+		const baseUrl = credentials.baseUrl as string;
+
+		assertCredentialAllowsUrl({
+			node: this.getNode(),
+			credentialData: credentials,
+			url: baseUrl,
+			surface: 'Ollama',
+		});
+
+		const headers = credentials.apiKey
+			? {
+					Authorization: `Bearer ${credentials.apiKey as string}`,
+				}
+			: undefined;
+
+		const lookup = this.helpers.getSecureEgressFilter().createSecureLookup();
+
+		const embeddings = new OllamaEmbeddings({
+			baseUrl,
+			model: modelName,
+			headers,
+			fetch: async (input: RequestInfo | URL, init?: RequestInit) =>
+				await proxyFetch({ input, init, lookup }),
+		});
+
+		return {
+			response: logWrapper(embeddings, this),
+		};
+	}
+}

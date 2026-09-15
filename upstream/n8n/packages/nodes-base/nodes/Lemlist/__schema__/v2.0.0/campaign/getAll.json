@@ -1,0 +1,30 @@
+{
+    "type": "object",
+    "properties": {
+        "_id": {
+            "type": "string"
+        },
+        "archived": {
+            "type": "boolean"
+        },
+        "createdAt": {
+            "type": "string"
+        },
+        "createdBy": {
+            "type": "string"
+        },
+        "emoji": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "sequenceId": {
+            "type": "string"
+        },
+        "status": {
+            "type": "string"
+        }
+    },
+    "version": 4
+}

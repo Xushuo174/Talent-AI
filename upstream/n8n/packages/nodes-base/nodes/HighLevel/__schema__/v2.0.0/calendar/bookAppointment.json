@@ -1,0 +1,42 @@
+{
+    "type": "object",
+    "properties": {
+        "address": {
+            "type": "string"
+        },
+        "appoinmentStatus": {
+            "type": "string"
+        },
+        "appointmentStatus": {
+            "type": "string"
+        },
+        "assignedUserId": {
+            "type": "string"
+        },
+        "calendarId": {
+            "type": "string"
+        },
+        "contactId": {
+            "type": "string"
+        },
+        "id": {
+            "type": "string"
+        },
+        "isRecurring": {
+            "type": "boolean"
+        },
+        "locationId": {
+            "type": "string"
+        },
+        "status": {
+            "type": "string"
+        },
+        "title": {
+            "type": "string"
+        },
+        "traceId": {
+            "type": "string"
+        }
+    },
+    "version": 2
+}
