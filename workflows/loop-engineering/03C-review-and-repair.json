@@ -1,0 +1,899 @@
+{
+  "name": "03C-真实初稿审查与修订",
+  "nodes": [
+    {
+      "id": "ca0345d5-2a8f-48f7-81b0-9d16591ccf1f",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "ce16b8a6-7bc8-4444-a8b9-bed95c4d1b32",
+      "name": "Demo Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 此处修改输入。固定样本版支持 retry_then_pass / pass_first / always_fail / invalid_json / missing_input。\nconst testMode = 'retry_then_pass';\nconst maxRounds = 3;\nconst api = { method: 'POST', path: '/register', rules: [\n  {id:'R1', description:'email 必须符合邮箱格式。'},\n  {id:'R2', description:'password 长度为 8～20 个字符。'},\n  {id:'R3', description:'已注册的 email 不允许重复注册。'}\n] };\nreturn [{json:{api:api,maxRounds,testMode,evidenceType:'live_model_user_draft',initialDraft:{\"cases\":[{\"id\":\"B7\",\"title\":\"B7: boundary\",\"category\":\"boundary\",\"ruleIds\":[\"R2\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"new@example.com\",\"password\":\"aaaaaaa\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"rejected\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"B8\",\"title\":\"B8: boundary\",\"category\":\"boundary\",\"ruleIds\":[\"R2\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"new@example.com\",\"password\":\"aaaaaaaa\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"accepted\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"B20\",\"title\":\"B20: boundary\",\"category\":\"boundary\",\"ruleIds\":[\"R2\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"new@example.com\",\"password\":\"aaaaaaaaaaaaaaaaaaaa\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"accepted\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"N1\",\"title\":\"N1: normal\",\"category\":\"normal\",\"ruleIds\":[\"R1\",\"R2\",\"R3\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"new@example.com\",\"password\":\"abcdefghij\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"accepted\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"A1\",\"title\":\"A1: abnormal\",\"category\":\"abnormal\",\"ruleIds\":[\"R1\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"invalid-email\",\"password\":\"abcdefghij\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"rejected\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"A2\",\"title\":\"A2: abnormal\",\"category\":\"abnormal\",\"ruleIds\":[\"R3\"],\"preconditions\":\"该邮箱已经注册。\",\"emailAlreadyRegistered\":true,\"request\":{\"email\":\"old@example.com\",\"password\":\"abcdefghij\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"rejected\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}},{\"id\":\"C1\",\"title\":\"C1: combination\",\"category\":\"combination\",\"ruleIds\":[\"R1\",\"R2\"],\"preconditions\":\"该邮箱未注册。\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"invalid-email\",\"password\":\"abc\"},\"steps\":[\"按请求数据调用 POST /register。\",\"检查注册结果。\"],\"expectedResult\":{\"outcome\":\"rejected\",\"description\":\"根据邮箱格式、密码长度和重复注册规则检查是否接受注册。\"}}]}}}];\n"
+      },
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "id": "2c8e01fa-a090-42aa-b4f3-38f16f8fe28d",
+      "name": "Init State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nreturn [{json: initialState($input.first().json)}];"
+      },
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "id": "78c0debc-c826-4e62-a5de-17acdb16ff29",
+      "name": "Input Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c306d3b4-e6f9-4ed2-8f29-f087c3066c50",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "running",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "id": "8f571ab5-0798-4b4e-a01e-707c6ef92ca2",
+      "name": "Requirement Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json.api) }}",
+        "options": {
+          "systemMessage": "你是需求分析师。提取接口信息与 R1/R2/R3，保留编号，不增加业务规则。简短输出。",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        880,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "621030ee-460c-47b6-b5fd-b0e0e7b782fe",
+      "name": "Store Requirements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init State').first().json));\nconst out = $input.first().json;\ns.preLoop.requirements = typeof out.output === 'string' ? out.output : null;\nif (!s.preLoop.requirements) { s.status='blocked'; s.exitReason='requirements_unavailable'; }\nreturn [{json:s}];"
+      },
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "id": "bfd47ba8-08e0-4e57-82e5-4666a3373c15",
+      "name": "Analysis Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({api:$json.api,requirements:$json.preLoop.requirements}) }}",
+        "options": {
+          "systemMessage": "你是测试分析师。为 R1/R2/R3 列出正常、异常、边界、组合测试点，不编造业务规则。密码边界为7、8、20、21。简短输出。",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        1320,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "5ca39626-4366-4f20-9dbe-cdb701a264de",
+      "name": "Store Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Store Requirements').first().json));\nconst out = $input.first().json;\ns.preLoop.analyses = typeof out.output === 'string' && out.output.trim() ? [out.output] : [];\nif (s.status === 'blocked' || !s.preLoop.analyses.length) {\n s.status='blocked'; s.nextAction='stop'; s.exitReason='preloop_unavailable';\n s.feedback={result:'blocked',passed:false,blocked:true,issues:[{id:'PRELOOP',message:'需求或分析 Agent 没有有效输出。'}],nextAction:'stop'};\n}\nreturn [{json:s}];"
+      },
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "id": "3140cc8f-0ff9-4275-bd9c-b92244baff14",
+      "name": "Analysis Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6c70d582-371f-4a12-9f38-c076e0359e07",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "running",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "id": "e1c33592-f5cd-4c93-9f4e-70b31fbbf19f",
+      "name": "Context Builder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nreturn [{json:buildContext($input.first().json)}];"
+      },
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "id": "7d392802-c7ab-48c0-bc48-1b812181af4c",
+      "name": "Writer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.context.taskPrompt }}",
+        "options": {
+          "systemMessage": "你是接口测试用例编写者。依据输入的接口、验收标准和反馈生成完整方案。\n仅输出 JSON 对象，不要 Markdown、不要解释：\n{\"cases\":[{\"id\":\"TC01\",\"title\":\"...\",\"category\":\"normal\",\"ruleIds\":[\"R1\"],\"preconditions\":\"...\",\"emailAlreadyRegistered\":false,\"request\":{\"email\":\"new@example.com\",\"password\":\"abcdefgh\"},\"steps\":[\"...\"],\"expectedResult\":{\"outcome\":\"accepted\",\"description\":\"...\"}}]}\ncategory 只能为 normal、abnormal、boundary、combination。\nexpectedResult.outcome 只能为 accepted 或 rejected。\n每条用例都要有上述所有字段，password 必须是实际字符串，不得用“20位密码”等占位说明。\n密码边界测试使用合法且未注册的邮箱，隔离密码长度变量。\n至少覆盖 7、8、20、21 位密码、合法注册、非法邮箱、重复注册、多条件组合。\n不编造 HTTP 状态码或错误码。按反馈修订，保留原本正确的用例。",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        2200,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "92b27d00-d089-45f0-9654-c45ea790e2f8",
+      "name": "Parse Writer Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\n// 单个 State Item；每轮此节点与 Context Builder 恰好执行一次。\nconst state = $('Context Builder').all(0, $runIndex)[0].json;\nreturn [{json:parseWriter(state, $input.first().json.output)}];"
+      },
+      "position": [
+        2420,
+        0
+      ]
+    },
+    {
+      "id": "a0a260f1-afd5-4b95-8944-29705238d468",
+      "name": "Writer JSON Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d7f43e22-eea4-4a5a-9511-56cfc4747ee0",
+              "leftValue": "={{ $json.parseError ? \"invalid\" : \"valid\" }}",
+              "rightValue": "valid",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "id": "cdacc732-22cf-4e34-a841-4d3207cdddf1",
+      "name": "Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({api:$json.api,acceptanceCriteria:$json.acceptanceCriteria,currentResult:$json.currentResult}) }}",
+        "options": {
+          "systemMessage": "你是独立测试评审者。只评审，不编写替代方案。\n核对接口原始规则、验收条件和当前测试方案。关注邮箱格式、重复注册、前置条件、请求数据与预期的一致性，以及业务覆盖遗漏。\n不要因 Writer 自称完成而通过。仅输出 JSON：\n{\"verdict\":\"pass\",\"issues\":[]}\nverdict 只能是 pass、fail、blocked。fail 时 issues 必须给出具体可修复问题：[{\"id\":\"RULE_R3\",\"message\":\"缺少已注册邮箱再次注册的拒绝场景。\"}]。\n可修复的方案缺陷使用 fail。只有缺少必要接口定义、无法评审时使用 blocked。\n未定义具体 HTTP 状态码并不是问题，不要要求 Writer 编造它们。",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        2860,
+        -100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "037670f6-d5c0-47e2-8ecd-4923afd5227a",
+      "name": "Feedback Verifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nconst state = $('Parse Writer Output').all(0, $runIndex)[0].json;\nreturn [{json:verify(state, $input.first().json.output)}];"
+      },
+      "position": [
+        3080,
+        0
+      ]
+    },
+    {
+      "id": "15668603-88bf-45bc-aa8c-2b9b56799c45",
+      "name": "Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0d9589b-02c0-4b91-894f-350cfb94bbe8",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        3300,
+        0
+      ]
+    },
+    {
+      "id": "17720fd6-0f6b-493d-a168-295fb25654b4",
+      "name": "Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d2accce3-3a2d-4e69-bf16-4f53f68265fc",
+              "leftValue": "={{ $json.nextAction }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        3520,
+        160
+      ]
+    },
+    {
+      "id": "908ddd8d-5383-4aed-8d89-5e87344b4e79",
+      "name": "Advance Round",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nreturn [{json:advanceRound($input.first().json)}];"
+      },
+      "position": [
+        3080,
+        370
+      ]
+    },
+    {
+      "id": "a6089fe1-9268-42ec-99f0-a2dad109b015",
+      "name": "End Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      },
+      "position": [
+        3740,
+        -140
+      ]
+    },
+    {
+      "id": "cf3acab7-3804-4c5e-85f2-7b8f024281cf",
+      "name": "End Stop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      },
+      "position": [
+        3740,
+        210
+      ]
+    },
+    {
+      "id": "ee546223-7cbf-4465-9638-0b5c5d5dd2e6",
+      "name": "End Blocked Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      },
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "id": "12b86061-646f-4458-9f9f-d7d3f8ef688c",
+      "name": "DeepSeek Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "parameters": {
+        "model": "deepseek-flash",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "position": [
+        1980,
+        -340
+      ],
+      "notes": "选择你已有的 DeepSeek 凭据。此文件不包含凭据。",
+      "notesInFlow": true
+    },
+    {
+      "id": "c1df2de5-98d1-415c-9e70-ed0da9de3f0a",
+      "name": "Read Me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "parameters": {
+        "content": "## 真实模型修订明确有缺陷的用户初稿\nDemo Input.initialDraft 是人工构造的输入，缺少21位密码边界，不是模型产物。\n第0轮审查初稿；第1～3轮由真实Writer修订并重新评审。\n修复一次即通过时，Context Builder只执行一次，但存在审查→反馈→修改→再审查的闭环。\n选择DeepSeek凭据，从Manual Trigger完整执行。",
+        "height": 220,
+        "width": 610
+      },
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "id": "31a98dd7-4a82-4b3f-a9d5-87ae44c7713a",
+      "name": "Load User Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1930,
+        -530
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nconst s=JSON.parse(JSON.stringify($input.first().json));\ns.round=0;\ns.currentResult=$('Demo Input').first().json.initialDraft;\ns.inputOrigin='Explicit synthetic user draft for a real model repair task; not a Writer output.';\nreturn [{json:s}];"
+      }
+    },
+    {
+      "id": "c417ab3d-00d2-4420-8b9c-55a9d53a997c",
+      "name": "Review User Draft",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({api:$json.api,acceptanceCriteria:$json.acceptanceCriteria,currentResult:$json.currentResult}) }}",
+        "options": {
+          "systemMessage": "你是独立测试评审者。只评审，不编写替代方案。\n核对接口原始规则、验收条件和当前测试方案。关注邮箱格式、重复注册、前置条件、请求数据与预期的一致性，以及业务覆盖遗漏。\n不要因 Writer 自称完成而通过。仅输出 JSON：\n{\"verdict\":\"pass\",\"issues\":[]}\nverdict 只能是 pass、fail、blocked。fail 时 issues 必须给出具体可修复问题：[{\"id\":\"RULE_R3\",\"message\":\"缺少已注册邮箱再次注册的拒绝场景。\"}]。\n可修复的方案缺陷使用 fail。只有缺少必要接口定义、无法评审时使用 blocked。\n未定义具体 HTTP 状态码并不是问题，不要要求 Writer 编造它们。",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        2160,
+        -530
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "bbf265f6-919f-443a-91be-c7f9750f4f76",
+      "name": "Verify User Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2390,
+        -530
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function isObject(value) {\n  return value !== null && typeof value === 'object' && !Array.isArray(value);\n}\nfunction hasText(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\nfunction parseObject(value) {\n  if (isObject(value)) return value;\n  if (typeof value !== 'string') throw new Error('Expected a JSON object or JSON text.');\n  const parsed = JSON.parse(value.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n  if (!isObject(parsed)) throw new Error('Expected a JSON object.');\n  return parsed;\n}\nfunction initialState(input) {\n  const s = {\n    goal: '根据接口定义生成可验证的注册接口测试方案',\n    api: input.api,\n    acceptanceCriteria: [\n      '覆盖 R1 邮箱格式、R2 密码长度、R3 重复注册。',\n      '密码边界必须包含实际长度为 7、8、20、21 的请求值。',\n      '至少 6 条用例，ID 唯一，包含正常、异常、边界和组合场景。',\n      '每条用例有前置条件、请求、步骤、预期结果及规则编号。',\n      '不得编造未提供的 HTTP 状态码或错误码。',\n    ],\n    round: 1, maxRounds: input.maxRounds ?? 3,\n    preLoop: { requirements: null, analyses: [] },\n    currentResult: null, review: null, feedback: null, historySummary: [],\n    status: 'running', nextAction: 'execute',\n    testMode: input.testMode ?? 'retry_then_pass',\n    evidenceType: input.evidenceType ?? 'live_model',\n  };\n  const validApi = isObject(s.api) && s.api.method === 'POST' && hasText(s.api.path)\n    && Array.isArray(s.api.rules) && ['R1', 'R2', 'R3'].every(id => s.api.rules.some(r => r.id === id && hasText(r.description)));\n  if (!validApi || !Number.isInteger(s.maxRounds) || s.maxRounds < 1 || s.maxRounds > 5) {\n    s.status = 'blocked'; s.nextAction = 'stop';\n    s.feedback = { result: 'blocked', passed: false, blocked: true,\n      issues: [{ id: 'INPUT_INVALID', message: '接口定义不完整，或 maxRounds 不是 1～5 的整数。' }],\n      feedback: '补全接口定义后重新运行。', nextAction: 'stop' };\n  }\n  return s;\n}\nfunction buildContext(state) {\n  const s = JSON.parse(JSON.stringify(state));\n  s.review = null;\n  s.parseError = null;\n  s.context = {\n    round: s.round,\n    mustKeep: ['原始接口定义和业务规则', '上一轮已经正确的用例'],\n    mustFix: s.feedback?.issues ?? [],\n    acceptanceCriteria: s.acceptanceCriteria,\n  };\n  s.context.taskPrompt = [\n    '生成完整的测试方案 JSON，不要仅返回修改部分。',\n    '原始目标：' + s.goal,\n    '接口定义：' + JSON.stringify(s.api),\n    '验收标准：' + JSON.stringify(s.acceptanceCriteria),\n    '稳定需求与分析：' + JSON.stringify(s.preLoop),\n    '当前轮次：' + s.round,\n    '上一轮完整方案：' + JSON.stringify(s.currentResult),\n    '必须修复的问题：' + JSON.stringify(s.context.mustFix),\n    '历史摘要：' + JSON.stringify(s.historySummary),\n  ].join('\\n\\n');\n  return s;\n}\nfunction parseWriter(state, output) {\n  const s = JSON.parse(JSON.stringify(state));\n  try { s.currentResult = parseObject(output); }\n  catch (error) { s.currentResult = null; s.parseError = error.message; }\n  return s;\n}\nfunction validateResult(result) {\n  const issues = [];\n  const add = (id, message) => issues.push({ id, message });\n  if (!isObject(result) || !Array.isArray(result.cases)) {\n    add('CASES_REQUIRED', '返回 {\"cases\": [...]}，cases 必须为数组。');\n    return issues;\n  }\n  const cases = result.cases;\n  if (cases.length < 6) add('CASE_COUNT', '至少需要 6 条测试用例。');\n  const ids = new Set();\n  for (const [index, c] of cases.entries()) {\n    const label = `用例 ${index + 1}`;\n    if (!isObject(c)) { add('CASE_OBJECT_' + index, label + '必须是对象。'); continue; }\n    if (!hasText(c.id) || ids.has(c.id)) add('CASE_ID_' + index, label + '的 ID 缺失或重复。');\n    ids.add(c.id);\n    for (const field of ['title', 'preconditions']) {\n      if (!hasText(c[field])) add('FIELD_' + index + '_' + field, `${label}缺少 ${field}。`);\n    }\n    if (!Array.isArray(c.ruleIds) || !c.ruleIds.length || c.ruleIds.some(id => !['R1', 'R2', 'R3'].includes(id))) {\n      add('RULE_IDS_' + index, label + '必须标注有效的 ruleIds。');\n    }\n    if (!Array.isArray(c.steps) || !c.steps.length || !c.steps.every(hasText)) add('STEPS_' + index, label + '缺少非空执行步骤。');\n    if (!['normal', 'abnormal', 'boundary', 'combination'].includes(c.category)) add('CATEGORY_' + index, label + '的 category 无效。');\n    if (typeof c.emailAlreadyRegistered !== 'boolean') add('EMAIL_STATE_' + index, label + '必须声明 emailAlreadyRegistered。');\n    if (!isObject(c.request) || typeof c.request.email !== 'string' || typeof c.request.password !== 'string') {\n      add('REQUEST_' + index, label + '的请求必须包含字符串 email 和 password。');\n    }\n    if (!isObject(c.expectedResult) || !['accepted', 'rejected'].includes(c.expectedResult.outcome) || !hasText(c.expectedResult.description)) {\n      add('EXPECTED_' + index, label + '缺少预期 outcome 或说明。');\n    }\n  }\n  for (const ruleId of ['R1', 'R2', 'R3']) {\n    if (!cases.some(c => isObject(c) && Array.isArray(c.ruleIds) && c.ruleIds.includes(ruleId))) add('COVER_' + ruleId, `缺少 ${ruleId} 的用例映射。`);\n  }\n  for (const category of ['normal', 'abnormal', 'boundary', 'combination']) {\n    if (!cases.some(c => c?.category === category)) add('COVER_' + category, `缺少 ${category} 场景。`);\n  }\n  for (const length of [7, 8, 20, 21]) {\n    const outcome = length === 8 || length === 20 ? 'accepted' : 'rejected';\n    const found = cases.some(c => isObject(c) && c.category === 'boundary'\n      && Array.isArray(c.ruleIds) && c.ruleIds.includes('R2')\n      && isObject(c.request) && typeof c.request.password === 'string' && c.request.password.length === length\n      && typeof c.request.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(c.request.email)\n      && c.emailAlreadyRegistered === false && c.expectedResult?.outcome === outcome);\n    if (!found) add('PASSWORD_BOUNDARY_' + length, `增加或修复密码实际长度 ${length} 的边界用例：邮箱合法且未注册，预期 ${outcome}。`);\n  }\n  return issues;\n}\nfunction verify(state, reviewerOutput) {\n  const s = JSON.parse(JSON.stringify(state));\n  let issues = [];\n  let blocked = Boolean(s.parseError || !s.currentResult);\n  if (blocked) issues.push({ id: 'WRITER_JSON', message: s.parseError || 'Writer 没有合法输出。' });\n  if (!blocked) {\n    issues = validateResult(s.currentResult);\n    try {\n      const review = parseObject(reviewerOutput);\n      if (!['pass', 'fail', 'blocked'].includes(review.verdict) || !Array.isArray(review.issues)\n        || !review.issues.every(i => isObject(i) && hasText(i.id) && hasText(i.message))) throw new Error('Reviewer 输出结构无效。');\n      s.review = review;\n      blocked = review.verdict === 'blocked';\n      issues.push(...review.issues.map(i => ({ id: 'REVIEW_' + i.id, message: i.message })));\n      if (review.verdict !== 'pass' && !review.issues.length) issues.push({ id: 'REVIEW_VERDICT', message: 'Reviewer 判定为 ' + review.verdict + '，请检查语义完整性。' });\n    } catch (error) {\n      blocked = true;\n      issues.push({ id: 'REVIEW_JSON', message: error.message });\n    }\n  }\n  const passed = !blocked && issues.length === 0 && s.review?.verdict === 'pass';\n  const result = blocked ? 'blocked' : passed ? 'pass' : 'fail';\n  const retry = result === 'fail' && s.round < s.maxRounds;\n  s.status = blocked ? 'blocked' : passed ? 'success' : retry ? 'running' : 'failed';\n  s.nextAction = retry ? 'retry' : 'stop';\n  s.exitReason = retry ? null : blocked ? 'blocked' : passed ? 'passed' : 'maxRounds';\n  s.feedback = { result, passed, blocked, issues,\n    feedback: issues.length ? issues.map(i => `${i.id}: ${i.message}`).join('\\n') : '全部检查通过。',\n    nextAction: s.nextAction };\n  s.historySummary.push({ round: s.round, result, caseCount: s.currentResult?.cases?.length ?? 0,\n    issues: issues.map(i => ({ id: i.id, message: i.message })) });\n  return s;\n}\nfunction advanceRound(state) {\n  if (state.nextAction !== 'retry' || state.round >= state.maxRounds) throw new Error('Retry is not allowed.');\n  const s = JSON.parse(JSON.stringify(state));\n  s.round += 1;\n  return s;\n}\nconst s=$('Load User Draft').first().json;\nreturn [{json:verify(s,$input.first().json.output)}];"
+      }
+    },
+    {
+      "id": "9d207f90-9290-4ad1-8eda-2ed235cc69ff",
+      "name": "Draft Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0d9589b-02c0-4b91-894f-350cfb94bbe8",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        2630,
+        -530
+      ]
+    },
+    {
+      "id": "c83b57e8-0fad-4f49-bcf4-432bee8e44c1",
+      "name": "Draft Repairable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d2accce3-3a2d-4e69-bf16-4f53f68265fc",
+              "leftValue": "={{ $json.nextAction }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        2860,
+        -530
+      ]
+    }
+  ],
+  "connections": {
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Requirement Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Writer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Reviewer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Review User Draft",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Demo Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demo Input": {
+      "main": [
+        [
+          {
+            "node": "Init State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init State": {
+      "main": [
+        [
+          {
+            "node": "Input Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Ready?": {
+      "main": [
+        [
+          {
+            "node": "Requirement Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End Blocked Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Requirement Agent": {
+      "main": [
+        [
+          {
+            "node": "Store Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Requirements": {
+      "main": [
+        [
+          {
+            "node": "Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Store Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Analysis": {
+      "main": [
+        [
+          {
+            "node": "Analysis Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Ready?": {
+      "main": [
+        [
+          {
+            "node": "Load User Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context Builder": {
+      "main": [
+        [
+          {
+            "node": "Writer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Writer Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Writer Output": {
+      "main": [
+        [
+          {
+            "node": "Writer JSON Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer JSON Valid?": {
+      "main": [
+        [
+          {
+            "node": "Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Feedback Verifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviewer Agent": {
+      "main": [
+        [
+          {
+            "node": "Feedback Verifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feedback Verifier": {
+      "main": [
+        [
+          {
+            "node": "Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed?": {
+      "main": [
+        [
+          {
+            "node": "End Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry?": {
+      "main": [
+        [
+          {
+            "node": "Advance Round",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Advance Round": {
+      "main": [
+        [
+          {
+            "node": "Context Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load User Draft": {
+      "main": [
+        [
+          {
+            "node": "Review User Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review User Draft": {
+      "main": [
+        [
+          {
+            "node": "Verify User Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify User Draft": {
+      "main": [
+        [
+          {
+            "node": "Draft Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Passed?": {
+      "main": [
+        [
+          {
+            "node": "End Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Draft Repairable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Repairable?": {
+      "main": [
+        [
+          {
+            "node": "Advance Round",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
