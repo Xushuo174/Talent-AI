@@ -174,6 +174,7 @@ describe('useWorkflowDiff', () => {
 				() => ({}) as Record<string, { width: number; height: number }>,
 			),
 			getNodeExecutionSnapshot: () => createNodeExecutionSnapshot(),
+			getLoopExecutionTimeline: () => [],
 			nodes: computed(() => nodes as CanvasNode[]),
 			connections: computed(() => connections as CanvasConnection[]),
 		});

@@ -42,6 +42,13 @@ vi.mock('@/app/composables/useSelectionValidation', () => ({
 	}),
 }));
 
+vi.mock('../../../composables/useCanvasLoopRegionActions', () => ({
+	useCanvasLoopRegionActions: () => ({
+		canCreateLoopRegion: computed(() => false),
+		createLoopRegion: vi.fn(),
+	}),
+}));
+
 vi.mock('@vue-flow/core', () => ({
 	useVueFlow: () => ({ vueFlowRef: { value: null } }),
 	getRectOfNodes: (nodes: GraphNode[]) => {

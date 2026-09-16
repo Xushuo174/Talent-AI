@@ -6159,7 +6159,7 @@ describe('useCanvasOperations', () => {
 			},
 		);
 
-		it('should remap nodeGroups nodeIds when regenerating IDs', async () => {
+		it('should remap loop group node references when regenerating IDs', async () => {
 			const oldId1 = 'old-node-id-1';
 			const oldId2 = 'old-node-id-2';
 
@@ -6183,7 +6183,15 @@ describe('useCanvasOperations', () => {
 					},
 				],
 				connections: {},
-				nodeGroups: [{ id: 'group-1', name: 'My Group', nodeIds: [oldId1, oldId2] }],
+				nodeGroups: [
+					{
+						id: 'group-1',
+						name: 'My Group',
+						nodeIds: [oldId1, oldId2],
+						kind: 'loop' as const,
+						loop: { version: 1 as const, controllerNodeId: oldId1, evaluatorNodeId: oldId2 },
+					},
+				],
 			};
 
 			vi.mocked(workflowDocumentStoreInstance.createWorkflowObject).mockImplementation(
@@ -6217,12 +6225,20 @@ describe('useCanvasOperations', () => {
 
 			// nodeGroups should reference the new IDs
 			expect(result.nodeGroups).toEqual([
-				{ id: 'group-1', name: 'My Group', nodeIds: [newId1, newId2] },
+				{
+					id: 'group-1',
+					name: 'My Group',
+					nodeIds: [newId1, newId2],
+					kind: 'loop',
+					loop: { version: 1, controllerNodeId: newId1, evaluatorNodeId: newId2 },
+				},
 			]);
 
 			expect(createGroupSpy).toHaveBeenCalledWith([newId1, newId2], 'My Group', {
 				markDirty: true,
 				startCollapsed: true,
+				kind: 'loop',
+				loop: { version: 1, controllerNodeId: newId1, evaluatorNodeId: newId2 },
 			});
 			expect(workflowDocumentStoreInstance.getNextDefaultName).not.toHaveBeenCalled();
 		});

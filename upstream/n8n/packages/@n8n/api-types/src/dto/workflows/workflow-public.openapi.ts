@@ -211,6 +211,16 @@ export const nodeGroupsOpenApi: ZodOpenAPIMetadata = {
 		properties: {
 			id: { type: 'string', ...workflowNodeGroupFieldDocs.id },
 			name: { type: 'string', ...workflowNodeGroupFieldDocs.name },
+			kind: { type: 'string', enum: ['visual', 'loop'] },
+			loop: {
+				type: 'object',
+				properties: {
+					version: { type: 'number', enum: [1] },
+					controllerNodeId: { type: 'string' },
+					evaluatorNodeId: { type: 'string' },
+				},
+				required: ['version', 'controllerNodeId', 'evaluatorNodeId'],
+			},
 			description: {
 				type: 'string',
 				maxLength: 155,

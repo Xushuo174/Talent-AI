@@ -3439,6 +3439,9 @@ export interface ITaskMetadata {
 	 * Key-value pairs that can be set for tracing - they will be attached to the OTEL node span
 	 * */
 	tracing?: Record<string, string | number | boolean>;
+
+	/** State for one Goal Loop round. The editor uses it to render the loop timeline. */
+	loopEngineering?: import('./loop-engineering').LoopEngineeringTaskMetadata;
 }
 
 /** The data that gets returned when a node execution starts */
@@ -3525,6 +3528,12 @@ export interface IWorkflowGroup {
 	name: string;
 	nodeIds: string[];
 	description?: string;
+	kind?: 'visual' | 'loop';
+	loop?: {
+		version: 1;
+		controllerNodeId: string;
+		evaluatorNodeId: string;
+	};
 }
 
 export interface IWorkflowBase {

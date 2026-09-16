@@ -97,6 +97,15 @@ export function useCanvasMapping({
 		};
 	}
 
+	function getLoopExecutionTimeline(id: string) {
+		const rounds = new Map<number, NonNullable<ITaskData['metadata']>['loopEngineering']>();
+		for (const task of renderData.value.executionRunDataByNodeId.get(id)?.value ?? []) {
+			const metadata = task.metadata?.loopEngineering;
+			if (metadata) rounds.set(metadata.round, metadata);
+		}
+		return Array.from(rounds.values()).filter((round) => round !== undefined);
+	}
+
 	// Node id → its collapsed group, for nodes hidden by a collapsed group.
 	const collapsedGroupByNodeId = computed<Map<string, IWorkflowGroup>>(() => {
 		if (!nodeGroupView) return new Map();
@@ -337,5 +346,6 @@ export function useCanvasMapping({
 		connections: mappedConnections,
 		nodeDisplaySizeById,
 		getNodeExecutionSnapshot,
+		getLoopExecutionTimeline,
 	};
 }

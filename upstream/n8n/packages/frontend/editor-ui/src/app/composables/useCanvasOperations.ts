@@ -3079,6 +3079,17 @@ export function useCanvasOperations() {
 				workflowData.nodeGroups = workflowData.nodeGroups.map((group) => ({
 					...group,
 					nodeIds: group.nodeIds.map((id) => oldToNewIdMap.get(id) ?? id),
+					...(group.loop
+						? {
+								loop: {
+									...group.loop,
+									controllerNodeId:
+										oldToNewIdMap.get(group.loop.controllerNodeId) ?? group.loop.controllerNodeId,
+									evaluatorNodeId:
+										oldToNewIdMap.get(group.loop.evaluatorNodeId) ?? group.loop.evaluatorNodeId,
+								},
+							}
+						: {}),
 				}));
 			}
 
@@ -3290,6 +3301,8 @@ export function useCanvasOperations() {
 				markDirty: setStateDirty,
 				startCollapsed: true,
 				description: group.description,
+				kind: group.kind,
+				loop: group.loop,
 			});
 			if (trackHistory) {
 				historyStore.pushCommandToUndo(new AddNodeGroupCommand(createdGroup, Date.now()));

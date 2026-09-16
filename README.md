@@ -60,6 +60,13 @@ git --git-dir=.git/local-backups/n8n-20260915-235536/repository.git log -1
 
 ## 构建与运行
 
+首次完成构建后，可以直接双击项目根目录中的：
+
+- `启动n8n.cmd`：检查端口并从 `upstream/n8n` 启动当前源码版本。
+- `关闭n8n.cmd`：只关闭监听 5678 且命令行确认为 n8n 的 Node.js 进程。
+
+启动窗口需要保持打开。源码发生变化后仍需先完成一次构建，再双击启动脚本。
+
 从 `upstream/n8n` 执行：
 
 ```powershell

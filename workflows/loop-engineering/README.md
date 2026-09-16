@@ -11,6 +11,7 @@
 | `03A-control-check.json` | 固定样本控制测试。无需凭据，不调用模型。名为 Agent 的样本节点实际是 Code 节点。 |
 | `03B-live-model.json` | 真实模型版。Requirement、Analysis、Writer、Reviewer 都是独立 AI Agent 节点。 |
 | `03C-review-and-repair.json` | 审查明确有缺陷的用户初稿，再由真实模型修订。初稿为人工样本，修订效果需真实运行验证。 |
+| `04-native-loop.json` | 原生 Loop Region 控制测试。Goal Loop 管理状态、上下文、裁决和退出，Loop Evaluation 规范评审协议。 |
 | `logic.cjs` | 可复用的状态、上下文与验证函数，生成时嵌入 Code 节点。 |
 | `fixtures.cjs` | 人工编写的固定测试样本，不是模型执行结果。 |
 
@@ -20,6 +21,24 @@
 - 固定版本 n8n `a2d0f7638bbb7582e33a4dfa1537eeb8ff066788` 的真实 WorkflowExecute 调度器和原生 IF、Manual Trigger 节点，通过五种固定样本场景。
 - 调度器检查中的 Code 节点使用本地 VM 适配器。尚未验证浏览器导入及原生 Code task runner，也没有执行真实 DeepSeek 请求。
 - 尚无模型跨轮改善的实测结果。请按以下步骤完成实例验收。
+
+## 零、验证原生 Loop Region
+
+`04-native-loop.json` 面向已包含 Talent-AI 源码改动的 n8n 2.38.7（本地基线 `fa34d4cd`）。导入后从 Manual Trigger 完整运行，预期：
+
+1. `Pre-Loop Input` 只执行一次；
+2. Goal Loop 第一轮从 `iterate` 输出；
+3. `Writer and Test Fixture` 第一轮产生缺少 `expectedResult` 和 21 位密码边界的固定缺陷样本；
+4. Loop Evaluation 把确定性检查与 Reviewer 结果规范为 `LoopEvaluationV1`；
+5. Goal Loop 生成第二轮 `LoopContextV1`，其中只包含稳定目标、当前产物、失败证据、Reviewer 建议、历史摘要和下一步重点；
+6. 第二轮通过，从 `completed` 到达 `Completed`；
+7. Loop Region 标题栏显示 `Round 2 / 3 · Passed`，点击徽标可以查看 Round Timeline。
+
+固定 Code 节点只充当可重复的 Writer 与测试夹具。它不保存轮次、不决定继续或停止，也不构造下一轮上下文，因此 04 验证的是平台原生控制语义。要替换为真实场景，只需把该节点换成业务 Agent、工具、确定性测试和 Reviewer，并保持 Loop Evaluation 的字段协议。
+
+2026-09-17 本地源码验证已通过：04 在真实 `WorkflowExecute` 调度器中第二轮完成，Pre-Loop 只执行一次，失败证据进入第二轮上下文，且每轮状态已写入 execution metadata，供 Round Timeline 读取。该结果不包含浏览器导入和真实模型调用。
+
+也可以选中已有的单入口、单出口业务子图，点击选择工具栏中的 **Create Loop Region**。平台会插入 Goal Loop 和 Loop Evaluation、建立反馈边，并把原外部出口接到 `completed`。多分支必须先 Merge；非法选择会显示具体提示。
 
 ## 一、先导入固定样本版
 
@@ -217,7 +236,8 @@ Code 验证器检查：
 node scripts/build-loop-demo.cjs
 node scripts/check-loop-demo.cjs
 node scripts/check-loop-engine.cjs
+node scripts/build-native-loop-demo.cjs
+node scripts/check-native-loop-engine.cjs
 ```
 
-第一条重新生成工作流文件，不会修改 n8n 数据库中的工作流。
-第二条不依赖运行中的 n8n。第三条需要已构建的上游源码。
+前三条重新生成并检查 03A/03B/03C 对照工作流。第四条重新生成 04，且不会修改 n8n 数据库中的工作流。第五条通过已构建的上游源码和真实 `WorkflowExecute` 调度器验证 04 的两轮执行、Pre-Loop 次数、反馈上下文和 Round Timeline 元数据。

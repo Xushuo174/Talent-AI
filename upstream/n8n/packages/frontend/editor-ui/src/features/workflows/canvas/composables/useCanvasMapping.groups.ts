@@ -207,6 +207,7 @@ export interface MapGroupsToVueFlowNodesInputs {
 	isGroupCollapsed: (id: string) => boolean;
 	readOnly: boolean;
 	getNodeExecutionSnapshot: (id: string) => NodeExecutionSnapshot;
+	getLoopExecutionTimeline?: (id: string) => CanvasGroupNodeData['loopTimeline'];
 }
 
 /**
@@ -221,6 +222,7 @@ export function mapGroupsToVueFlowNodes({
 	isGroupCollapsed,
 	readOnly,
 	getNodeExecutionSnapshot,
+	getLoopExecutionTimeline,
 }: MapGroupsToVueFlowNodesInputs): CanvasGroupNode[] {
 	const out: CanvasGroupNode[] = [];
 	for (const group of allGroups) {
@@ -246,6 +248,9 @@ export function mapGroupsToVueFlowNodes({
 			executionStatus: aggregateGroupExecution(group.nodeIds, getNodeExecutionSnapshot),
 			allNodesDisabled:
 				connectableMembers.length > 0 && connectableMembers.every((node) => node.disabled === true),
+			...(group.kind === 'loop' && group.loop
+				? { loopTimeline: getLoopExecutionTimeline?.(group.loop.controllerNodeId) ?? [] }
+				: {}),
 		};
 
 		const id = createCanvasGroupNodeId(group.id);

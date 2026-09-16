@@ -11,7 +11,15 @@ import {
 	watch,
 } from 'vue';
 import { useI18n } from '@n8n/i18n';
-import { N8nIcon, N8nIconButton, N8nInlineTextEdit, N8nTooltip } from '@n8n/design-system';
+import {
+	N8nBadge,
+	N8nIcon,
+	N8nIconButton,
+	N8nInlineTextEdit,
+	N8nPopover,
+	N8nText,
+	N8nTooltip,
+} from '@n8n/design-system';
 import { Handle, Position, useVueFlow } from '@vue-flow/core';
 import KeyboardShortcutTooltip from '@/app/components/KeyboardShortcutTooltip.vue';
 import CanvasNodeStatusMark from '../nodes/render-types/parts/CanvasNodeStatusMark.vue';
@@ -81,6 +89,26 @@ const isCollapsed = computed(() => props.data.isCollapsed);
 const isDescriptionEmpty = computed(() => !group.value.description?.trim());
 const executionStatus = computed(() => props.data.executionStatus);
 const allNodesDisabled = computed(() => props.data.allNodesDisabled ?? false);
+const loopTimeline = computed(() => props.data.loopTimeline ?? []);
+const latestLoopRound = computed(() => loopTimeline.value.at(-1));
+const loopStatusTheme = computed(() => {
+	switch (latestLoopRound.value?.status) {
+		case 'passed':
+			return 'success';
+		case 'blocked':
+		case 'max_rounds':
+		case 'stagnated':
+			return 'danger';
+		default:
+			return 'warning';
+	}
+});
+
+function loopStatusLabel(
+	status: NonNullable<CanvasGroupNodeData['loopTimeline']>[number]['status'],
+) {
+	return i18n.baseText(`canvas.nodeGroup.loop.status.${status}`);
+}
 
 // Statuses rendered as a status mark; running/waiting render as the animated border.
 const MARK_STATUSES = ['success', 'error', 'warning'] as const;
@@ -515,6 +543,90 @@ function onWrapperPointerDown(event: PointerEvent) {
 							@mouseenter="onInfoMouseEnter"
 							@mouseleave="onInfoMouseLeave"
 						/>
+
+						<N8nPopover
+							v-if="group.kind === 'loop'"
+							side="bottom"
+							align="start"
+							width="320px"
+							:content-class="$style.loopTimelinePopover"
+						>
+							<template #trigger>
+								<N8nBadge
+									class="nodrag"
+									:theme="loopStatusTheme"
+									data-test-id="canvas-loop-region-status"
+								>
+									<template v-if="latestLoopRound">
+										{{
+											i18n.baseText('canvas.nodeGroup.loop.round', {
+												interpolate: {
+													round: latestLoopRound.round,
+													maxRounds: latestLoopRound.maxRounds,
+												},
+											})
+										}}
+										· {{ loopStatusLabel(latestLoopRound.status) }}
+									</template>
+									<template v-else>Loop</template>
+								</N8nBadge>
+							</template>
+							<template #content>
+								<div data-test-id="canvas-loop-region-timeline">
+									<N8nText bold size="medium">{{
+										i18n.baseText('canvas.nodeGroup.loop.timeline')
+									}}</N8nText>
+									<N8nText v-if="loopTimeline.length === 0" size="small" color="text-light">
+										{{ i18n.baseText('canvas.nodeGroup.loop.noRuns') }}
+									</N8nText>
+									<ol v-else :class="$style.loopTimeline">
+										<li
+											v-for="(round, index) in loopTimeline"
+											:key="`${round.round}-${index}`"
+											:class="$style.loopTimelineItem"
+										>
+											<div :class="$style.loopTimelineHeading">
+												<N8nText bold size="small">{{
+													i18n.baseText('canvas.nodeGroup.loop.round', {
+														interpolate: {
+															round: round.round,
+															maxRounds: round.maxRounds,
+														},
+													})
+												}}</N8nText>
+												<N8nText size="small">{{ loopStatusLabel(round.status) }}</N8nText>
+											</div>
+											<div :class="$style.loopTimelineDetails">
+												<N8nText v-if="round.score !== undefined" size="small">
+													{{
+														i18n.baseText('canvas.nodeGroup.loop.score', {
+															interpolate: { score: round.score },
+														})
+													}}
+												</N8nText>
+												<N8nText v-if="round.bestScore !== undefined" size="small">
+													{{
+														i18n.baseText('canvas.nodeGroup.loop.bestScore', {
+															interpolate: { score: round.bestScore },
+														})
+													}}
+												</N8nText>
+												<N8nText size="small">
+													{{
+														i18n.baseText('canvas.nodeGroup.loop.failedChecks', {
+															interpolate: { count: round.failedCheckIds.length },
+														})
+													}}
+												</N8nText>
+												<N8nText v-if="round.stopReason" size="small" color="text-light">
+													{{ round.stopReason }}
+												</N8nText>
+											</div>
+										</li>
+									</ol>
+								</div>
+							</template>
+						</N8nPopover>
 					</div>
 
 					<div
@@ -861,6 +973,32 @@ function onWrapperPointerDown(event: PointerEvent) {
 	flex-shrink: 0;
 	color: var(--text-color--subtler);
 	cursor: pointer;
+}
+
+.loopTimelinePopover {
+	padding: var(--spacing--sm);
+}
+
+.loopTimeline {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing--xs);
+	margin: var(--spacing--xs) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.loopTimelineItem {
+	padding-left: var(--spacing--xs);
+	border-left: var(--border-width-base) solid var(--border-color-base);
+}
+
+.loopTimelineHeading,
+.loopTimelineDetails {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing--2xs);
+	flex-wrap: wrap;
 }
 
 // Overlay the bottom-right corner, matching node status icons (CanvasNodeDefault)

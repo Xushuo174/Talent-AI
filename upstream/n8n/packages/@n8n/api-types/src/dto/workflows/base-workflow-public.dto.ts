@@ -65,6 +65,15 @@ const workflowNodeGroupWritePublicSchema = z
 		name: z.string().openapi(workflowNodeGroupFieldDocs.name),
 		description: z.string().max(155).optional().openapi(workflowNodeGroupFieldDocs.description),
 		nodeIds: z.array(z.string()).openapi(workflowNodeGroupFieldDocs.nodeIds),
+		kind: z.enum(['visual', 'loop']).optional(),
+		loop: z
+			.object({
+				version: z.literal(1),
+				controllerNodeId: z.string(),
+				evaluatorNodeId: z.string(),
+			})
+			.strict()
+			.optional(),
 	})
 	.strict();
 

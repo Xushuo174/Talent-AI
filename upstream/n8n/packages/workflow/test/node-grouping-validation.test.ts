@@ -8,6 +8,8 @@ import {
 	validateWorkflowGroups,
 } from '../src/node-grouping-validation';
 import {
+	GOAL_LOOP_NODE_TYPE,
+	LOOP_EVALUATION_NODE_TYPE,
 	NodeConnectionTypes,
 	STICKY_NODE_TYPE,
 	type IConnections,
@@ -588,6 +590,16 @@ describe('normalizeGroupDescription', () => {
 describe('validateWorkflowGroups', () => {
 	const nodeTypesByName: Record<string, INodeTypeDescription> = {
 		'n8n-nodes-base.set': makeNodeType(),
+		[GOAL_LOOP_NODE_TYPE]: makeNodeType({
+			name: GOAL_LOOP_NODE_TYPE,
+			outputs: [NodeConnectionTypes.Main, NodeConnectionTypes.Main, NodeConnectionTypes.Main],
+		}),
+		[LOOP_EVALUATION_NODE_TYPE]: makeNodeType({ name: LOOP_EVALUATION_NODE_TYPE }),
+		'n8n-nodes-base.chatModel': makeNodeType({
+			name: 'n8n-nodes-base.chatModel',
+			inputs: [],
+			outputs: [NodeConnectionTypes.AiLanguageModel],
+		}),
 		'n8n-nodes-base.manualTrigger': makeNodeType({
 			name: 'n8n-nodes-base.manualTrigger',
 			group: ['trigger'],
@@ -639,6 +651,174 @@ describe('validateWorkflowGroups', () => {
 		});
 
 		expect(result).toEqual({ valid: true });
+	});
+
+	it('returns valid for a well-formed loop region', () => {
+		const nodes = [
+			makeNode({ id: 'pre', name: 'Pre Loop' }),
+			makeNode({ id: 'goal', name: 'Goal Loop', type: GOAL_LOOP_NODE_TYPE }),
+			makeNode({ id: 'body', name: 'Writer' }),
+			makeNode({ id: 'eval', name: 'Loop Evaluation', type: LOOP_EVALUATION_NODE_TYPE }),
+			makeNode({ id: 'done', name: 'Done' }),
+		];
+		const connections: IConnections = {
+			'Pre Loop': {
+				main: [[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }]],
+			},
+			'Goal Loop': {
+				main: [
+					[{ node: 'Writer', type: NodeConnectionTypes.Main, index: 0 }],
+					[{ node: 'Done', type: NodeConnectionTypes.Main, index: 0 }],
+					[],
+				],
+			},
+			Writer: {
+				main: [[{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 }]],
+			},
+			'Loop Evaluation': {
+				main: [[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }]],
+			},
+		};
+
+		expect(
+			validateWorkflowGroups({
+				nodes,
+				connectionsBySourceNode: connections,
+				nodeGroups: [
+					{
+						id: 'loop-region',
+						name: 'Improve test plan',
+						nodeIds: ['goal', 'body', 'eval'],
+						kind: 'loop',
+						loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'eval' },
+					},
+				],
+				getNodeType,
+			}),
+		).toEqual({ valid: true });
+	});
+
+	it('allows an AI sub-node attached to the loop body', () => {
+		const nodes = [
+			makeNode({ id: 'goal', name: 'Goal Loop', type: GOAL_LOOP_NODE_TYPE }),
+			makeNode({ id: 'body', name: 'Writer' }),
+			makeNode({ id: 'model', name: 'Chat Model', type: 'n8n-nodes-base.chatModel' }),
+			makeNode({ id: 'eval', name: 'Loop Evaluation', type: LOOP_EVALUATION_NODE_TYPE }),
+		];
+		const connections: IConnections = {
+			'Goal Loop': {
+				main: [[{ node: 'Writer', type: NodeConnectionTypes.Main, index: 0 }], [], []],
+			},
+			Writer: {
+				main: [[{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 }]],
+			},
+			'Chat Model': {
+				[NodeConnectionTypes.AiLanguageModel]: [
+					[{ node: 'Writer', type: NodeConnectionTypes.AiLanguageModel, index: 0 }],
+				],
+			},
+			'Loop Evaluation': {
+				main: [[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }]],
+			},
+		};
+
+		expect(
+			validateWorkflowGroups({
+				nodes,
+				connectionsBySourceNode: connections,
+				nodeGroups: [
+					{
+						id: 'loop-region',
+						name: 'Agent loop',
+						nodeIds: ['goal', 'body', 'model', 'eval'],
+						kind: 'loop',
+						loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'eval' },
+					},
+				],
+				getNodeType,
+			}),
+		).toEqual({ valid: true });
+	});
+
+	it('rejects a loop region with an external input that bypasses Goal Loop', () => {
+		const nodes = [
+			makeNode({ id: 'pre', name: 'Pre Loop' }),
+			makeNode({ id: 'goal', name: 'Goal Loop', type: GOAL_LOOP_NODE_TYPE }),
+			makeNode({ id: 'body', name: 'Writer' }),
+			makeNode({ id: 'eval', name: 'Loop Evaluation', type: LOOP_EVALUATION_NODE_TYPE }),
+		];
+		const result = validateWorkflowGroups({
+			nodes,
+			connectionsBySourceNode: {
+				'Pre Loop': {
+					main: [[{ node: 'Writer', type: NodeConnectionTypes.Main, index: 0 }]],
+				},
+				'Goal Loop': {
+					main: [[{ node: 'Writer', type: NodeConnectionTypes.Main, index: 0 }], [], []],
+				},
+				Writer: {
+					main: [[{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 }]],
+				},
+				'Loop Evaluation': {
+					main: [[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }]],
+				},
+			},
+			nodeGroups: [
+				{
+					id: 'loop-region',
+					name: 'Improve test plan',
+					nodeIds: ['goal', 'body', 'eval'],
+					kind: 'loop',
+					loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'eval' },
+				},
+			],
+			getNodeType,
+		});
+
+		expectViolations(result, [{ code: 'loop-boundary-invalid' }]);
+	});
+
+	it('rejects loop branches that enter Loop Evaluation without merging', () => {
+		const nodes = [
+			makeNode({ id: 'goal', name: 'Goal Loop', type: GOAL_LOOP_NODE_TYPE }),
+			makeNode({ id: 'left', name: 'Left' }),
+			makeNode({ id: 'right', name: 'Right' }),
+			makeNode({ id: 'eval', name: 'Loop Evaluation', type: LOOP_EVALUATION_NODE_TYPE }),
+		];
+		const result = validateWorkflowGroups({
+			nodes,
+			connectionsBySourceNode: {
+				'Goal Loop': {
+					main: [[{ node: 'Left', type: NodeConnectionTypes.Main, index: 0 }], [], []],
+				},
+				Left: {
+					main: [
+						[
+							{ node: 'Right', type: NodeConnectionTypes.Main, index: 0 },
+							{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 },
+						],
+					],
+				},
+				Right: {
+					main: [[{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 }]],
+				},
+				'Loop Evaluation': {
+					main: [[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }]],
+				},
+			},
+			nodeGroups: [
+				{
+					id: 'loop-region',
+					name: 'Unmerged loop',
+					nodeIds: ['goal', 'left', 'right', 'eval'],
+					kind: 'loop',
+					loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'eval' },
+				},
+			],
+			getNodeType,
+		});
+
+		expectViolations(result, [{ code: 'loop-body-invalid' }]);
 	});
 
 	it('reports a duplicate group ID', () => {

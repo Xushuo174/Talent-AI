@@ -138,6 +138,7 @@ const {
 	connections: mappedConnections,
 	nodeDisplaySizeById,
 	getNodeExecutionSnapshot,
+	getLoopExecutionTimeline,
 } = useCanvasMapping({
 	nodes,
 	connections,
@@ -197,6 +198,7 @@ const mappedGroupVueFlowNodes = computed(() =>
 		isGroupCollapsed: (id) => nodeGroupView.isGroupCollapsed(id),
 		readOnly: readOnlyRef.value || suppressInteractionRef.value,
 		getNodeExecutionSnapshot,
+		getLoopExecutionTimeline,
 	}),
 );
 

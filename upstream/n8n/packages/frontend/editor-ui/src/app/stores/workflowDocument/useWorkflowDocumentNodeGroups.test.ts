@@ -42,6 +42,26 @@ describe('useWorkflowDocumentNodeGroups', () => {
 			expect(nodeGroups.getGroupById(group.id)?.description).toBe('Copied over');
 		});
 
+		it('creates a semantic loop group with controller references', () => {
+			const group = nodeGroups.createGroup(['goal', 'body', 'evaluation'], 'Loop', {
+				kind: 'loop',
+				loop: {
+					version: 1,
+					controllerNodeId: 'goal',
+					evaluatorNodeId: 'evaluation',
+				},
+			});
+
+			expect(group).toMatchObject({
+				kind: 'loop',
+				loop: {
+					version: 1,
+					controllerNodeId: 'goal',
+					evaluatorNodeId: 'evaluation',
+				},
+			});
+		});
+
 		it('caps an over-long seeded description to the server limit', () => {
 			const group = nodeGroups.createGroup(['a', 'b'], 'A', {
 				description: 'x'.repeat(GROUP_DESCRIPTION_MAX_LENGTH + 50),
@@ -281,6 +301,22 @@ describe('useWorkflowDocumentNodeGroups', () => {
 
 			expect(nodeGroups.getGroupById(group.id)?.nodeIds).toEqual(['a', 'b']);
 		});
+
+		it('updates loop controller and evaluator references', () => {
+			const group = nodeGroups.createGroup(['goal', 'body', 'evaluation'], 'Loop', {
+				kind: 'loop',
+				loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'evaluation' },
+			});
+
+			nodeGroups.replaceNodeInGroup(group.id, 'goal', 'new-goal');
+			nodeGroups.replaceNodeInGroup(group.id, 'evaluation', 'new-evaluation');
+
+			expect(nodeGroups.getGroupById(group.id)?.loop).toEqual({
+				version: 1,
+				controllerNodeId: 'new-goal',
+				evaluatorNodeId: 'new-evaluation',
+			});
+		});
 	});
 
 	describe('removeNodeFromGroups', () => {
@@ -308,6 +344,17 @@ describe('useWorkflowDocumentNodeGroups', () => {
 			nodeGroups.removeNodeFromGroups('a');
 			expect(nodeGroups.getGroupById(groupA.id)?.nodeIds).toEqual(['b']);
 			expect(nodeGroups.getGroupById(groupB.id)?.nodeIds).toEqual(['c']);
+		});
+
+		it('deletes a loop group when its controller is removed', () => {
+			const group = nodeGroups.createGroup(['goal', 'body', 'evaluation'], 'Loop', {
+				kind: 'loop',
+				loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'evaluation' },
+			});
+
+			nodeGroups.removeNodeFromGroups('goal');
+
+			expect(nodeGroups.getGroupById(group.id)).toBeUndefined();
 		});
 
 		it('does nothing when the node is not in any group', () => {

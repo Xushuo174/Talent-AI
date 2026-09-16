@@ -69,6 +69,27 @@ describe('CreateWorkflowDto', () => {
 				},
 			},
 			{
+				name: 'with a semantic loop node group',
+				request: {
+					name: 'Loop Workflow',
+					nodes: [],
+					connections: {},
+					nodeGroups: [
+						{
+							id: 'loop-group',
+							name: 'Loop Region',
+							nodeIds: ['goal', 'evaluation'],
+							kind: 'loop',
+							loop: {
+								version: 1,
+								controllerNodeId: 'goal',
+								evaluatorNodeId: 'evaluation',
+							},
+						},
+					],
+				},
+			},
+			{
 				name: 'with a group description at the length cap',
 				request: {
 					name: 'Grouped Workflow',
@@ -127,6 +148,32 @@ describe('CreateWorkflowDto', () => {
 		])('should validate $name', ({ request }) => {
 			const result = CreateWorkflowDto.safeParse(request);
 			expect(result.success).toBe(true);
+		});
+
+		test('should preserve semantic loop group fields', () => {
+			const result = CreateWorkflowDto.parse({
+				name: 'Loop Workflow',
+				nodes: [],
+				connections: {},
+				nodeGroups: [
+					{
+						id: 'loop-group',
+						name: 'Loop Region',
+						nodeIds: ['goal', 'evaluation'],
+						kind: 'loop',
+						loop: {
+							version: 1,
+							controllerNodeId: 'goal',
+							evaluatorNodeId: 'evaluation',
+						},
+					},
+				],
+			});
+
+			expect(result.nodeGroups?.[0]).toMatchObject({
+				kind: 'loop',
+				loop: { version: 1, controllerNodeId: 'goal', evaluatorNodeId: 'evaluation' },
+			});
 		});
 
 		test('should strip parentFolder from the parsed payload', () => {

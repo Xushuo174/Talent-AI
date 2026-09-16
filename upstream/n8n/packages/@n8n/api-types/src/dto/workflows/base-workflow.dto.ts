@@ -85,6 +85,14 @@ const workflowGroupSchema = z.object({
 			message: `Group description must be ${GROUP_DESCRIPTION_MAX_LENGTH} characters or less`,
 		})
 		.optional(),
+	kind: z.enum(['visual', 'loop']).optional(),
+	loop: z
+		.object({
+			version: z.literal(1),
+			controllerNodeId: z.string().min(1),
+			evaluatorNodeId: z.string().min(1),
+		})
+		.optional(),
 });
 
 export const workflowNodeGroupsSchema = z.array(workflowGroupSchema);

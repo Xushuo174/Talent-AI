@@ -4,6 +4,7 @@ import type {
 	INodeConnections,
 	INodeParameterResourceLocator,
 	IWorkflowGroup,
+	LoopEngineeringTaskMetadata,
 	NodeConnectionType,
 } from 'n8n-workflow';
 import type {
@@ -207,6 +208,8 @@ export interface CanvasGroupNodeData {
 	isCollapsed: boolean;
 	executionStatus?: GroupExecutionStatus;
 	allNodesDisabled?: boolean;
+	/** Goal Loop task metadata, ordered by execution round. */
+	loopTimeline?: LoopEngineeringTaskMetadata[];
 }
 
 export type CanvasGroupNode = Node<CanvasGroupNodeData>;

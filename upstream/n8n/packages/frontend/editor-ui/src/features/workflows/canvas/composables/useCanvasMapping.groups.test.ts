@@ -311,6 +311,35 @@ describe('mapGroupsToVueFlowNodes', () => {
 		expect(out[0].type).toBe('canvas-node-group');
 	});
 
+	it('maps Goal Loop execution metadata onto a loop region timeline', () => {
+		const getById = nodeStore(makeNode('a', 100, 200), makeNode('b', 400, 200));
+		const loopGroup: IWorkflowGroup = {
+			...group,
+			kind: 'loop',
+			loop: { version: 1, controllerNodeId: 'a', evaluatorNodeId: 'b' },
+		};
+		const timeline = [
+			{
+				regionId: 'a',
+				round: 2,
+				maxRounds: 3,
+				status: 'passed' as const,
+				score: 92,
+				failedCheckIds: [],
+			},
+		];
+		const out = mapGroupsToVueFlowNodes({
+			allGroups: [loopGroup],
+			getNodeById: getById,
+			isGroupCollapsed: () => true,
+			readOnly: false,
+			getNodeExecutionSnapshot: snapshotGetter(),
+			getLoopExecutionTimeline: (id) => (id === 'a' ? timeline : []),
+		});
+
+		expect(out[0]?.data?.loopTimeline).toEqual(timeline);
+	});
+
 	it('left edge sits at nodesRect.x - GROUP_PADDING_X (snapped to the grid), in both states', () => {
 		const collapsed = setup(true);
 		const expanded = setup(false);

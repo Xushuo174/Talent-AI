@@ -17,6 +17,7 @@ import {
 	type IWorkflowGroup,
 	type NodeConnectionType,
 } from './interfaces';
+import { GOAL_LOOP_NODE_TYPE, LOOP_EVALUATION_NODE_TYPE } from './loop-engineering';
 import { isTriggerNode } from './node-helpers';
 
 type NodeIo = NodeConnectionType | INodeInputConfiguration | INodeOutputConfiguration;
@@ -182,6 +183,13 @@ export type WorkflowGroupViolationCode =
 	| 'empty-group'
 	| 'unknown-node-id'
 	| 'node-in-multiple-groups'
+	| 'loop-config-missing'
+	| 'loop-controller-invalid'
+	| 'loop-evaluator-invalid'
+	| 'loop-node-count-invalid'
+	| 'loop-boundary-invalid'
+	| 'loop-feedback-invalid'
+	| 'loop-body-invalid'
 	| Extract<NodeGroupValidationResult, { valid: false }>['reason'];
 
 export type WorkflowGroupViolation = {
@@ -361,6 +369,18 @@ function validateWorkflowGroupsWithGroupIdentity<TNode extends INode>({
 			if (groupsWithBasicViolations.has(group)) continue;
 
 			const groupNodes = group.nodeIds.flatMap((id) => nodeById.get(id) ?? []);
+			if (group.kind === 'loop') {
+				const loopViolation = validateLoopWorkflowGroup({
+					group,
+					groupNodes,
+					connections,
+					getNodeType,
+				});
+				if (loopViolation) {
+					addViolation(group, loopViolation.code, loopViolation.message);
+				}
+				continue;
+			}
 			const result = validateNodeSelectionForGrouping({
 				nodes: groupNodes,
 				connectionsBySourceNode: connections,
@@ -376,6 +396,257 @@ function validateWorkflowGroupsWithGroupIdentity<TNode extends INode>({
 	const [firstViolation, ...restViolations] = violations;
 	if (!firstViolation) return { valid: true };
 	return { valid: false, violations: [firstViolation, ...restViolations] };
+}
+
+type LoopGroupValidationInput<TNode extends INode> = {
+	group: IWorkflowGroup;
+	groupNodes: TNode[];
+	connections: IConnections;
+	getNodeType: (node: TNode) => INodeTypeDescription | null | undefined;
+};
+
+type LoopGroupValidationFailure = {
+	code: Extract<
+		WorkflowGroupViolationCode,
+		| 'loop-config-missing'
+		| 'loop-controller-invalid'
+		| 'loop-evaluator-invalid'
+		| 'loop-node-count-invalid'
+		| 'loop-boundary-invalid'
+		| 'loop-feedback-invalid'
+		| 'loop-body-invalid'
+	>;
+	message: string;
+};
+
+type LoopEdge = {
+	source: string;
+	target: string;
+	type: string;
+	outputIndex: number;
+	inputIndex: number;
+};
+
+function workflowEdges(connections: IConnections): LoopEdge[] {
+	const result: LoopEdge[] = [];
+	for (const [source, byType] of Object.entries(connections)) {
+		for (const [type, outputs] of Object.entries(byType)) {
+			for (const [outputIndexText, outputConnections] of Object.entries(outputs)) {
+				if (!outputConnections) continue;
+				const outputIndex = Number(outputIndexText);
+				for (const connection of outputConnections) {
+					result.push({
+						source,
+						target: connection.node,
+						type,
+						outputIndex,
+						inputIndex: connection.index,
+					});
+				}
+			}
+		}
+	}
+	return result;
+}
+
+function reachableNodes(start: string, edges: LoopEdge[]): Set<string> {
+	const reached = new Set<string>();
+	const pending = [start];
+	while (pending.length > 0) {
+		const current = pending.shift();
+		if (!current || reached.has(current)) continue;
+		reached.add(current);
+		for (const edge of edges) {
+			if (edge.source === current && !reached.has(edge.target)) pending.push(edge.target);
+		}
+	}
+	return reached;
+}
+
+function includeAttachedNodes(reached: Set<string>, edges: LoopEdge[]): Set<string> {
+	const result = new Set(reached);
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const edge of edges) {
+			if (edge.type === NodeConnectionTypes.Main) continue;
+			if (result.has(edge.source) && !result.has(edge.target)) {
+				result.add(edge.target);
+				changed = true;
+			}
+			if (result.has(edge.target) && !result.has(edge.source)) {
+				result.add(edge.source);
+				changed = true;
+			}
+		}
+	}
+	return result;
+}
+
+function findLoopTriggerViolation<TNode extends INode>(
+	label: string,
+	groupNodes: TNode[],
+	getNodeType: (node: TNode) => INodeTypeDescription | null | undefined,
+): LoopGroupValidationFailure | undefined {
+	const triggers = groupNodes.filter((node) => {
+		const nodeType = getNodeType(node);
+		return nodeType ? isTriggerNode(nodeType) : false;
+	});
+	if (triggers.length === 0) return undefined;
+
+	return {
+		code: 'loop-body-invalid',
+		message: `${label} cannot contain trigger nodes: ${triggers.map((node) => node.name).join(', ')}.`,
+	};
+}
+
+function findLoopBoundaryViolation(
+	label: string,
+	memberNames: Set<string>,
+	controllerName: string,
+	edges: LoopEdge[],
+): LoopGroupValidationFailure | undefined {
+	const boundaryEdges = edges.filter(
+		(edge) => memberNames.has(edge.source) !== memberNames.has(edge.target),
+	);
+	for (const edge of boundaryEdges) {
+		if (edge.type !== NodeConnectionTypes.Main) {
+			return {
+				code: 'loop-boundary-invalid',
+				message: `${label} cannot have a non-main connection across its boundary.`,
+			};
+		}
+		if (!memberNames.has(edge.source) && edge.target !== controllerName) {
+			return {
+				code: 'loop-boundary-invalid',
+				message: `${label} accepts external input only through Goal Loop.`,
+			};
+		}
+		if (
+			memberNames.has(edge.source) &&
+			(edge.source !== controllerName || (edge.outputIndex !== 1 && edge.outputIndex !== 2))
+		) {
+			return {
+				code: 'loop-boundary-invalid',
+				message: `${label} exposes output only through Goal Loop completed or stopped.`,
+			};
+		}
+	}
+	return undefined;
+}
+
+function validateLoopWorkflowGroup<TNode extends INode>({
+	group,
+	groupNodes,
+	connections,
+	getNodeType,
+}: LoopGroupValidationInput<TNode>): LoopGroupValidationFailure | undefined {
+	const label = `Loop region "${group.name}"`;
+	if (!group.loop) {
+		return { code: 'loop-config-missing', message: `${label} has no loop configuration.` };
+	}
+
+	const controller = groupNodes.find((node) => node.id === group.loop?.controllerNodeId);
+	if (!controller || controller.type !== GOAL_LOOP_NODE_TYPE) {
+		return {
+			code: 'loop-controller-invalid',
+			message: `${label} must reference one Goal Loop controller inside the region.`,
+		};
+	}
+	const evaluator = groupNodes.find((node) => node.id === group.loop?.evaluatorNodeId);
+	if (!evaluator || evaluator.type !== LOOP_EVALUATION_NODE_TYPE) {
+		return {
+			code: 'loop-evaluator-invalid',
+			message: `${label} must reference one Loop Evaluation node inside the region.`,
+		};
+	}
+
+	const controllers = groupNodes.filter((node) => node.type === GOAL_LOOP_NODE_TYPE);
+	const evaluators = groupNodes.filter((node) => node.type === LOOP_EVALUATION_NODE_TYPE);
+	if (controllers.length !== 1 || evaluators.length !== 1) {
+		return {
+			code: 'loop-node-count-invalid',
+			message: `${label} must contain exactly one Goal Loop and one Loop Evaluation node.`,
+		};
+	}
+
+	const triggerViolation = findLoopTriggerViolation(label, groupNodes, getNodeType);
+	if (triggerViolation) return triggerViolation;
+
+	const memberNames = new Set(groupNodes.map((node) => node.name));
+	const edges = workflowEdges(connections);
+	const boundaryViolation = findLoopBoundaryViolation(label, memberNames, controller.name, edges);
+	if (boundaryViolation) return boundaryViolation;
+
+	const internalMainEdges = edges.filter(
+		(edge) =>
+			edge.type === NodeConnectionTypes.Main &&
+			memberNames.has(edge.source) &&
+			memberNames.has(edge.target),
+	);
+	const feedbackEdges = internalMainEdges.filter(
+		(edge) => edge.source === evaluator.name && edge.target === controller.name,
+	);
+	const controllerInputEdges = internalMainEdges.filter((edge) => edge.target === controller.name);
+	const evaluatorOutputEdges = internalMainEdges.filter((edge) => edge.source === evaluator.name);
+	if (
+		feedbackEdges.length !== 1 ||
+		feedbackEdges[0].outputIndex !== 0 ||
+		controllerInputEdges.length !== 1 ||
+		evaluatorOutputEdges.length !== 1
+	) {
+		return {
+			code: 'loop-feedback-invalid',
+			message: `${label} must use Loop Evaluation as the only feedback connection to Goal Loop.`,
+		};
+	}
+
+	const bodyStartEdges = internalMainEdges.filter(
+		(edge) => edge.source === controller.name && edge.outputIndex === 0,
+	);
+	const controllerBodyEdges = internalMainEdges.filter((edge) => edge.source === controller.name);
+	const evaluatorInputEdges = internalMainEdges.filter((edge) => edge.target === evaluator.name);
+	if (
+		bodyStartEdges.length !== 1 ||
+		controllerBodyEdges.length !== 1 ||
+		evaluatorInputEdges.length !== 1
+	) {
+		return {
+			code: 'loop-body-invalid',
+			message: `${label} must have one iterate entry and one merged input to Loop Evaluation.`,
+		};
+	}
+
+	const bodyEdges = internalMainEdges.filter(
+		(edge) => !(edge.source === evaluator.name && edge.target === controller.name),
+	);
+	const internalEdges = edges.filter(
+		(edge) => memberNames.has(edge.source) && memberNames.has(edge.target),
+	);
+	const fromController = includeAttachedNodes(
+		reachableNodes(controller.name, bodyEdges),
+		internalEdges,
+	);
+	const connectableNames = groupNodes
+		.filter((node) => node.type !== STICKY_NODE_TYPE)
+		.map((node) => node.name);
+	if (!connectableNames.every((name) => fromController.has(name))) {
+		return {
+			code: 'loop-body-invalid',
+			message: `${label} must keep every node on the path from Goal Loop to Loop Evaluation.`,
+		};
+	}
+
+	const reversed = bodyEdges.map((edge) => ({ ...edge, source: edge.target, target: edge.source }));
+	const toEvaluator = includeAttachedNodes(reachableNodes(evaluator.name, reversed), internalEdges);
+	if (!connectableNames.every((name) => name === controller.name || toEvaluator.has(name))) {
+		return {
+			code: 'loop-body-invalid',
+			message: `${label} must merge every body branch before Loop Evaluation.`,
+		};
+	}
+
+	return undefined;
 }
 
 function stripWorkflowGroupIdentity({

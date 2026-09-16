@@ -56,6 +56,24 @@ describe('UpdateWorkflowDto', () => {
 				},
 			},
 			{
+				name: 'update semantic loop nodeGroups',
+				request: {
+					nodeGroups: [
+						{
+							id: 'loop-group',
+							name: 'Loop Region',
+							nodeIds: ['goal', 'evaluation'],
+							kind: 'loop',
+							loop: {
+								version: 1,
+								controllerNodeId: 'goal',
+								evaluatorNodeId: 'evaluation',
+							},
+						},
+					],
+				},
+			},
+			{
 				name: 'set nodeGroups to empty array',
 				request: { nodeGroups: [] },
 			},

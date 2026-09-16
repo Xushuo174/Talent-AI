@@ -15,6 +15,7 @@ export * from './dynamic-credentials-helpers';
 export * from './safe-regex';
 export * from './global-state';
 export * from './interfaces';
+export * from './loop-engineering';
 export {
 	fromFunction,
 	fromParameter,

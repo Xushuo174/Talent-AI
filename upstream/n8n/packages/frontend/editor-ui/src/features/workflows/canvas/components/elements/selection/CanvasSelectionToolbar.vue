@@ -8,6 +8,7 @@ import type { GraphNode } from '@vue-flow/core';
 
 import { useVueFlowTransformPaneTeleport } from '../../../composables/useVueFlowTransformPaneTeleport';
 import { useCanvasNodeGroupActions } from '../../../composables/useCanvasNodeGroupActions';
+import { useCanvasLoopRegionActions } from '../../../composables/useCanvasLoopRegionActions';
 import { useSelectionValidation } from '@/app/composables/useSelectionValidation';
 import { useSettingsStore } from '@n8n/stores/settings.store';
 import type { BoundingBox } from '../../../canvas.types';
@@ -40,6 +41,10 @@ const { isSelectionExtractable } = useSelectionValidation();
 const { canGroup, groupSelection } = useCanvasNodeGroupActions(() => props.selectedNodes, {
 	readOnly: () => props.readOnly,
 });
+const { canCreateLoopRegion, createLoopRegion } = useCanvasLoopRegionActions(
+	() => props.selectedNodes,
+	{ readOnly: () => props.readOnly },
+);
 
 const emit = defineEmits<{
 	'group-created': [id: string];
@@ -56,7 +61,9 @@ const canExtractWorkflow = computed(
 );
 
 const isToolbarVisible = computed(
-	() => (canGroup.value || canExtractWorkflow.value) && selectedNodeIds.value.length > 1,
+	() =>
+		canCreateLoopRegion.value ||
+		((canGroup.value || canExtractWorkflow.value) && selectedNodeIds.value.length > 1),
 );
 
 const extractWorkflowLabel = computed(() =>
@@ -84,6 +91,11 @@ function onGroupClick() {
 	if (group) emit('group-created', group.id);
 }
 
+function onCreateLoopRegionClick() {
+	const group = createLoopRegion();
+	if (group) emit('group-created', group.id);
+}
+
 function onExtractWorkflowClick() {
 	emit('extract-workflow', selectedNodeIds.value);
 }
@@ -100,6 +112,21 @@ function onExtractWorkflowClick() {
 			data-test-id="canvas-selection-toolbar"
 			@mousedown.stop
 		>
+			<KeyboardShortcutTooltip
+				v-if="canCreateLoopRegion"
+				placement="top"
+				:label="i18n.baseText('canvas.selection.toolbar.createLoopRegion')"
+			>
+				<N8nIconButton
+					size="small"
+					variant="ghost"
+					icon="refresh-cw"
+					icon-size="large"
+					data-test-id="canvas-selection-toolbar-create-loop-region"
+					:aria-label="i18n.baseText('canvas.selection.toolbar.createLoopRegion')"
+					@click.stop="onCreateLoopRegionClick"
+				/>
+			</KeyboardShortcutTooltip>
 			<KeyboardShortcutTooltip
 				v-if="canGroup"
 				placement="top"

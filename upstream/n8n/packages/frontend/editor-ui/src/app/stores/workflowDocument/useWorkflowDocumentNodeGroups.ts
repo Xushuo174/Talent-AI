@@ -36,13 +36,16 @@ type NodeGroupCreateOptions = NodeGroupMutationOptions & {
 	startCollapsed?: boolean;
 	/** Optional description to seed the group with (e.g. imported/pasted groups). */
 	description?: string;
+	/** Optional semantic behavior for this group. */
+	kind?: IWorkflowGroup['kind'];
+	/** Loop controller and evaluator references for a loop group. */
+	loop?: IWorkflowGroup['loop'];
 };
 
 export function useWorkflowDocumentNodeGroups() {
 	const groups = ref<Map<string, IWorkflowGroup>>(new Map());
 
 	const onNodeGroupsChange = createEventHook<NodeGroupChangeEvent>();
-	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 	const onStateDirty = createEventHook<void>();
 
 	const allGroups = computed(() => Array.from(groups.value.values()));
@@ -105,6 +108,8 @@ export function useWorkflowDocumentNodeGroups() {
 			nodeIds: [...nodeIds],
 			name,
 			...(description ? { description } : {}),
+			...(options.kind ? { kind: options.kind } : {}),
+			...(options.loop ? { loop: { ...options.loop } } : {}),
 		};
 		applyUpsertGroup(group, CHANGE_ACTION.ADD, options);
 		return group;
@@ -180,6 +185,21 @@ export function useWorkflowDocumentNodeGroups() {
 				nodeIds: uniq(
 					group.nodeIds.map((nodeId) => (nodeId === previousNodeId ? newNodeId : nodeId)),
 				),
+				...(group.loop
+					? {
+							loop: {
+								...group.loop,
+								controllerNodeId:
+									group.loop.controllerNodeId === previousNodeId
+										? newNodeId
+										: group.loop.controllerNodeId,
+								evaluatorNodeId:
+									group.loop.evaluatorNodeId === previousNodeId
+										? newNodeId
+										: group.loop.evaluatorNodeId,
+							},
+						}
+					: {}),
 			},
 			CHANGE_ACTION.UPDATE,
 		);
@@ -197,6 +217,13 @@ export function useWorkflowDocumentNodeGroups() {
 	function removeNodeFromGroups(nodeId: string) {
 		for (const group of groups.value.values()) {
 			if (!group.nodeIds.includes(nodeId)) continue;
+			if (
+				group.kind === 'loop' &&
+				(group.loop?.controllerNodeId === nodeId || group.loop?.evaluatorNodeId === nodeId)
+			) {
+				applyDeleteGroup(group.id);
+				continue;
+			}
 			const remaining = group.nodeIds.filter((id) => id !== nodeId);
 			if (remaining.length === 0) {
 				applyDeleteGroup(group.id);
