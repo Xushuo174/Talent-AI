@@ -1,15 +1,71 @@
 import { parse as parseYaml } from 'yaml';
 import {
+	AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES,
+	AGENT_SKILL_LINKED_FILE_MAX_COUNT,
+	AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES,
 	AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES,
 	AGENT_SKILL_REFERENCE_MAX_COUNT,
 	AGENT_SKILL_REFERENCES_TOTAL_MAX_BYTES,
 } from '@n8n/api-types';
 import type { BaseTextKey } from '@n8n/i18n';
 
-import type { AgentSkill, AgentSkillReference } from '../types';
+import type { AgentSkill, AgentSkillFile, AgentSkillLinkedFileGroup } from '../types';
+import { AGENT_SKILL_FILE_GROUPS } from '../utils/agentSkillFiles';
 
 const SKILL_FILE_NAME = 'SKILL.md';
 const FRONTMATTER_DELIMITER = '---';
+const TEXT_EXTENSIONS = new Set([
+	'',
+	'.adoc',
+	'.bib',
+	'.c',
+	'.cfg',
+	'.conf',
+	'.cpp',
+	'.css',
+	'.csv',
+	'.go',
+	'.h',
+	'.hpp',
+	'.htm',
+	'.html',
+	'.ini',
+	'.ipynb',
+	'.java',
+	'.js',
+	'.json',
+	'.jsonl',
+	'.jsx',
+	'.kt',
+	'.log',
+	'.lua',
+	'.md',
+	'.markdown',
+	'.mjs',
+	'.php',
+	'.properties',
+	'.ps1',
+	'.py',
+	'.rb',
+	'.rs',
+	'.rst',
+	'.scss',
+	'.sh',
+	'.sql',
+	'.svg',
+	'.tex',
+	'.toml',
+	'.ts',
+	'.tsv',
+	'.tsx',
+	'.txt',
+	'.vue',
+	'.xml',
+	'.yaml',
+	'.yml',
+]);
+const IGNORED_PATH_SEGMENTS = new Set(['.git', '.github', 'node_modules', '__pycache__']);
+const SENSITIVE_FILE_NAMES = new Set(['.env', '.npmrc', '.pypirc']);
 
 export class AgentSkillImportError extends Error {
 	constructor(readonly i18nKey: BaseTextKey) {
@@ -23,8 +79,13 @@ type SkillFrontmatter = {
 	allowed_tools?: unknown;
 };
 
+export interface AgentSkillImportResult {
+	skill: AgentSkill;
+	skippedFiles: string[];
+}
+
 export function useAgentSkillImport() {
-	async function importSkillFiles(files: File[]): Promise<AgentSkill> {
+	async function importSkillFiles(files: File[]): Promise<AgentSkillImportResult> {
 		if (files.length === 0) {
 			throw new AgentSkillImportError('agents.builder.skills.import.noFiles');
 		}
@@ -41,52 +102,98 @@ export function useAgentSkillImport() {
 		const skillDir = skillFile.path.slice(0, -SKILL_FILE_NAME.length).replace(/\/$/, '');
 		const skillContent = await readFileText(skillFile.file);
 		const parsed = parseSkillMarkdown(skillContent);
-		const references: AgentSkillReference[] = [];
+		const linkedFiles: Record<AgentSkillLinkedFileGroup, AgentSkillFile[]> = {
+			references: [],
+			templates: [],
+			scripts: [],
+			assets: [],
+			examples: [],
+			other: [],
+		};
+		const skippedFiles: string[] = [];
 		const seenPaths = new Set<string>();
-		let totalReferenceBytes = 0;
+		let totalBytes = 0;
 
 		for (const entry of fileEntries) {
 			if (entry === skillFile) continue;
 			const relativePath = pathRelativeToSkillDir(entry.path, skillDir);
-			if (!relativePath) continue;
-			if (relativePath === SKILL_FILE_NAME) continue;
-			if (relativePath.startsWith('scripts/')) {
-				throw new AgentSkillImportError('agents.builder.skills.import.scriptsUnsupported');
+			if (!relativePath || relativePath === SKILL_FILE_NAME) continue;
+			if (shouldIgnorePath(relativePath) || !isSupportedTextPath(relativePath)) {
+				skippedFiles.push(relativePath);
+				continue;
 			}
-			if (!relativePath.startsWith('references/')) continue;
-			if (!isMarkdownPath(relativePath)) {
-				throw new AgentSkillImportError('agents.builder.skills.import.referenceMarkdownOnly');
+
+			const group = groupForPath(relativePath);
+			if (group === 'references' && !isMarkdownPath(relativePath)) {
+				skippedFiles.push(relativePath);
+				continue;
 			}
 			if (seenPaths.has(relativePath)) {
-				throw new AgentSkillImportError('agents.builder.skills.import.duplicateReference');
+				throw new AgentSkillImportError(
+					'agents.builder.skills.import.duplicateLinkedFile' as BaseTextKey,
+				);
 			}
-			if (references.length >= AGENT_SKILL_REFERENCE_MAX_COUNT) {
+			if (seenPaths.size >= AGENT_SKILL_LINKED_FILE_MAX_COUNT) {
+				throw new AgentSkillImportError(
+					'agents.builder.skills.import.tooManyLinkedFiles' as BaseTextKey,
+				);
+			}
+			if (
+				group === 'references' &&
+				linkedFiles.references.length >= AGENT_SKILL_REFERENCE_MAX_COUNT
+			) {
 				throw new AgentSkillImportError('agents.builder.skills.import.tooManyReferences');
 			}
-			if (entry.file.size > AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES) {
-				throw new AgentSkillImportError('agents.builder.skills.import.referenceTooLarge');
+
+			const maxBytes =
+				group === 'references'
+					? AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES
+					: AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES;
+			if (entry.file.size > maxBytes) {
+				throw new AgentSkillImportError(
+					'agents.builder.skills.import.linkedFileTooLarge' as BaseTextKey,
+				);
 			}
-			seenPaths.add(relativePath);
 
 			const content = await readFileText(entry.file);
-			const bytes = new TextEncoder().encode(content).byteLength;
-			if (bytes > AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES) {
-				throw new AgentSkillImportError('agents.builder.skills.import.referenceTooLarge');
+			if (!content || content.includes('\0')) {
+				skippedFiles.push(relativePath);
+				continue;
 			}
-			totalReferenceBytes += bytes;
-			if (totalReferenceBytes > AGENT_SKILL_REFERENCES_TOTAL_MAX_BYTES) {
+			const bytes = new TextEncoder().encode(content).byteLength;
+			if (bytes > maxBytes) {
+				throw new AgentSkillImportError(
+					'agents.builder.skills.import.linkedFileTooLarge' as BaseTextKey,
+				);
+			}
+			totalBytes += bytes;
+			if (totalBytes > AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES) {
+				throw new AgentSkillImportError(
+					'agents.builder.skills.import.linkedFilesTooLarge' as BaseTextKey,
+				);
+			}
+			if (
+				group === 'references' &&
+				linkedFiles.references.reduce((total, file) => total + utf8Bytes(file.content), 0) + bytes >
+					AGENT_SKILL_REFERENCES_TOTAL_MAX_BYTES
+			) {
 				throw new AgentSkillImportError('agents.builder.skills.import.referencesTooLarge');
 			}
-			references.push({
-				path: relativePath,
-				content,
-			});
+
+			seenPaths.add(relativePath);
+			linkedFiles[group].push({ path: relativePath, content });
 		}
 
 		return {
-			...parsed,
-			allowedTools: parsed.allowedTools,
-			references: references.length > 0 ? references : undefined,
+			skill: {
+				...parsed,
+				...Object.fromEntries(
+					AGENT_SKILL_FILE_GROUPS.flatMap((group) =>
+						linkedFiles[group].length > 0 ? [[group, linkedFiles[group]]] : [],
+					),
+				),
+			},
+			skippedFiles: skippedFiles.sort(),
 		};
 	}
 
@@ -94,9 +201,13 @@ export function useAgentSkillImport() {
 }
 
 function findSkillFile(entries: Array<{ file: File; path: string }>) {
-	return entries.find(
-		(entry) => entry.path === SKILL_FILE_NAME || entry.path.endsWith(`/${SKILL_FILE_NAME}`),
-	);
+	return entries
+		.filter((entry) => entry.path === SKILL_FILE_NAME || entry.path.endsWith(`/${SKILL_FILE_NAME}`))
+		.sort((left, right) => pathDepth(left.path) - pathDepth(right.path))[0];
+}
+
+function pathDepth(path: string): number {
+	return path.split('/').length;
 }
 
 function pathRelativeToSkillDir(path: string, skillDir: string): string | null {
@@ -177,8 +288,37 @@ function normalizePath(path: string): string {
 	return path.replaceAll('\\', '/').replace(/^\/+/, '');
 }
 
+function groupForPath(path: string): AgentSkillLinkedFileGroup {
+	const topLevelDirectory = path.split('/')[0];
+	if (AGENT_SKILL_FILE_GROUPS.includes(topLevelDirectory as AgentSkillLinkedFileGroup)) {
+		return topLevelDirectory as AgentSkillLinkedFileGroup;
+	}
+	return 'other';
+}
+
+function shouldIgnorePath(path: string): boolean {
+	const segments = path.split('/');
+	const fileName = segments.at(-1)?.toLowerCase() ?? '';
+	return (
+		segments.some((segment) => IGNORED_PATH_SEGMENTS.has(segment)) ||
+		SENSITIVE_FILE_NAMES.has(fileName) ||
+		fileName.startsWith('.env.')
+	);
+}
+
+function isSupportedTextPath(path: string): boolean {
+	const fileName = path.split('/').at(-1) ?? '';
+	const dotIndex = fileName.lastIndexOf('.');
+	const extension = dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : '';
+	return TEXT_EXTENSIONS.has(extension);
+}
+
 function isMarkdownPath(path: string): boolean {
-	return path.endsWith('.md') || path.endsWith('.markdown');
+	return /\.(md|markdown)$/i.test(path);
+}
+
+function utf8Bytes(value: string): number {
+	return new TextEncoder().encode(value).byteLength;
 }
 
 async function readFileText(file: File): Promise<string> {

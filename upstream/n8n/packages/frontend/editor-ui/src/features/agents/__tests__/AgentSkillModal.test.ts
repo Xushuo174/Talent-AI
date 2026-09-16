@@ -238,7 +238,7 @@ describe('AgentSkillModal', () => {
 
 		expect(
 			container.querySelector(
-				'[data-testid="agent-skill-reference-nav-item-references-reference-21-md"]',
+				`[data-testid="agent-skill-reference-nav-item-references-reference-${AGENT_SKILL_REFERENCE_MAX_COUNT + 1}-md"]`,
 			),
 		).not.toBeInTheDocument();
 		expect(container.querySelector('[data-testid="agent-skill-viewer-stub"]')).toHaveTextContent(

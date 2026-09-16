@@ -1,6 +1,7 @@
 # n8n source is tracked by this repository. Its nested .gitignore still applies.
 /.runtime/
 /logs/
+/workflows/
 /.tools/
 /node_modules/
 /.n8n/

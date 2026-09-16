@@ -22,7 +22,7 @@ describe('agent skill DTOs', () => {
 		).toBe(true);
 	});
 
-	it('accepts allowed tools and markdown references without derived file metadata', () => {
+	it('accepts allowed tools and grouped text files without derived file metadata', () => {
 		const result = agentSkillSchema.safeParse({
 			...validSkill,
 			allowedTools: ['load_workflow'],
@@ -32,9 +32,29 @@ describe('agent skill DTOs', () => {
 					content: '# Guide',
 				},
 			],
+			templates: [{ path: 'templates/report.md', content: '# Report' }],
+			scripts: [{ path: 'scripts/analyze.py', content: 'print("ready")' }],
+			assets: [{ path: 'assets/theme.css', content: ':root {}' }],
+			examples: [{ path: 'examples/input.json', content: '{"ready":true}' }],
+			other: [{ path: 'README.md', content: '# Notes' }],
 		});
 
 		expect(result.success).toBe(true);
+	});
+
+	it('rejects a linked file outside its declared group', () => {
+		expect(
+			agentSkillSchema.safeParse({
+				...validSkill,
+				scripts: [{ path: 'templates/run.py', content: 'print("no")' }],
+			}).success,
+		).toBe(false);
+		expect(
+			agentSkillSchema.safeParse({
+				...validSkill,
+				other: [{ path: 'scripts/run.py', content: 'print("no")' }],
+			}).success,
+		).toBe(false);
 	});
 
 	it('rejects removed metadata fields', () => {

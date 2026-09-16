@@ -21,7 +21,9 @@ import {
 } from '@n8n/ai-utilities/agent-config';
 import {
 	AGENT_SKILL_REFERENCE_MAX_COUNT,
-	agentSkillSchema,
+	AGENT_SKILL_LINKED_FILE_GROUPS,
+	AGENT_SKILL_LINKED_FILE_MAX_COUNT,
+	agentSkillShape,
 	agentTaskSchema,
 	formatZodErrors,
 	PROVIDER_CAPABILITIES,
@@ -32,6 +34,9 @@ import {
 	sanitizeAgentJsonConfig,
 	tryParseConfigJson,
 	type AgentJsonConfig,
+	type AgentSkill,
+	type AgentSkillFile,
+	type AgentSkillLinkedFileGroup,
 	type ConfigValidationError,
 } from '@n8n/api-types';
 import { OutboundHttp } from '@n8n/backend-network';
@@ -109,17 +114,30 @@ const CLI_AGENT_CONFIG_MESSAGES: AgentConfigValidationMessages = {
 
 const createSkillInputSchema = z
 	.object({
-		name: agentSkillSchema.shape.name.describe('Human-readable skill name'),
-		description: agentSkillSchema.shape.description.describe(SKILL_DESCRIPTION_RULE),
-		instructions: agentSkillSchema.shape.instructions.describe(SKILL_BODY_GUIDANCE),
-		allowedTools: agentSkillSchema.shape.allowedTools
+		name: agentSkillShape.name.describe('Human-readable skill name'),
+		description: agentSkillShape.description.describe(SKILL_DESCRIPTION_RULE),
+		instructions: agentSkillShape.instructions.describe(SKILL_BODY_GUIDANCE),
+		allowedTools: agentSkillShape.allowedTools
 			.optional()
 			.describe('Exact target-agent tool names this skill is allowed to use.'),
-		references: agentSkillSchema.shape.references
+		references: agentSkillShape.references
 			.optional()
 			.describe(
 				'Markdown-only supporting files under references/... paths. References are not automatically loaded; instructions must say exactly when to load each reference by path.',
 			),
+		templates: agentSkillShape.templates
+			.optional()
+			.describe('Text templates under templates/... paths.'),
+		scripts: agentSkillShape.scripts
+			.optional()
+			.describe(
+				'Script source under scripts/... paths. This stores source but does not execute it.',
+			),
+		assets: agentSkillShape.assets.optional().describe('Text assets under assets/... paths.'),
+		examples: agentSkillShape.examples
+			.optional()
+			.describe('Text examples under examples/... paths.'),
+		other: agentSkillShape.other.optional().describe('Other text files in the skill folder.'),
 	})
 	.strict();
 
@@ -135,6 +153,11 @@ const readSkillInputSchema = z
 			.describe(
 				'Optional reference paths whose content is needed. Omit to receive paths and UTF-8 byte sizes only.',
 			),
+		linkedFilePaths: z
+			.array(z.string().min(1))
+			.max(AGENT_SKILL_LINKED_FILE_MAX_COUNT)
+			.optional()
+			.describe('Optional linked file paths whose content is needed.'),
 	})
 	.strict();
 
@@ -142,15 +165,20 @@ type ReadSkillInput = z.infer<typeof readSkillInputSchema>;
 
 const updateSkillFieldsSchema = z
 	.object({
-		name: agentSkillSchema.shape.name.optional(),
-		description: agentSkillSchema.shape.description.optional(),
-		instructions: agentSkillSchema.shape.instructions.optional(),
-		allowedTools: agentSkillSchema.shape.allowedTools.unwrap().min(1).nullable().optional(),
-		references: agentSkillSchema.shape.references
+		name: agentSkillShape.name.optional(),
+		description: agentSkillShape.description.optional(),
+		instructions: agentSkillShape.instructions.optional(),
+		allowedTools: agentSkillShape.allowedTools.unwrap().min(1).nullable().optional(),
+		references: agentSkillShape.references
 			.unwrap()
 			.refine((references) => references.length > 0, 'Pass null to clear references.')
 			.nullable()
 			.optional(),
+		templates: agentSkillShape.templates.unwrap().nullable().optional(),
+		scripts: agentSkillShape.scripts.unwrap().nullable().optional(),
+		assets: agentSkillShape.assets.unwrap().nullable().optional(),
+		examples: agentSkillShape.examples.unwrap().nullable().optional(),
+		other: agentSkillShape.other.unwrap().nullable().optional(),
 	})
 	.strict()
 	.refine((updates) => Object.keys(updates).length > 0, {
@@ -167,6 +195,24 @@ const updateSkillInputSchema = z
 	.strict();
 
 type UpdateSkillInput = z.infer<typeof updateSkillInputSchema>;
+
+function splitSkillLinkedFiles(skill: AgentSkill): {
+	body: Omit<AgentSkill, AgentSkillLinkedFileGroup>;
+	linkedFiles: Record<AgentSkillLinkedFileGroup, AgentSkillFile[]>;
+} {
+	const { references, templates, scripts, assets, examples, other, ...body } = skill;
+	return {
+		body,
+		linkedFiles: {
+			references: references ?? [],
+			templates: templates ?? [],
+			scripts: scripts ?? [],
+			assets: assets ?? [],
+			examples: examples ?? [],
+			other: other ?? [],
+		},
+	};
+}
 
 const updateTaskFieldsSchema = z
 	.object({
@@ -1025,10 +1071,12 @@ export class AgentsBuilderToolsService {
 					'applicable section filled in with concrete, specific content. If you do not have enough domain ' +
 					"detail to write a genuinely useful skill, derive it from the user's goal as stated assumptions " +
 					'listed in your summary; ask the user clarifying questions only when even a reasonable ' +
-					'assumption is impossible. Use allowedTools only with exact target-agent tool names. Use references ' +
-					'only for markdown supporting files under the references/ directory — references are not ' +
-					'automatically loaded, so instructions must say exactly when to load each one by path; scripts and ' +
-					'non-markdown linked files are not supported. Do not invent tool names or reference paths. Batch ' +
+					'assumption is impossible. Use allowedTools only with exact target-agent tool names; references are ' +
+					'not automatically loaded, so instructions must say exactly when to load each one by path. Apply ' +
+					'the same rule to templates, scripts, assets, examples, and other linked files. Script files store ' +
+					'source instructions and do not execute ' +
+					'without a separate execution tool. Do not invent tool names or reference paths. Do not invent ' +
+					'paths for other linked files. Batch ' +
 					'every skill you currently know how to write into one call.',
 			)
 			.input(
@@ -1064,24 +1112,28 @@ export class AgentsBuilderToolsService {
 		const readSkillTool = new Tool(BUILDER_TOOLS.READ_SKILL)
 			.description(
 				'Read an existing target-agent skill by id. The response includes its instructions, but ' +
-					'references are returned as { path, sizeBytes } metadata by default to keep context small. ' +
-					'Pass only the referencePaths whose content you need. Returns { ok: true, id, skill } or ' +
+					'linked files are returned as { path, sizeBytes } metadata by default to keep context small. ' +
+					'Pass only the linkedFilePaths whose content you need. Returns { ok: true, id, skill } or ' +
 					'{ ok: false, errors }.',
 			)
 			.input(readSkillInputSchema)
-			.handler(async ({ skillId, referencePaths = [] }: ReadSkillInput) => {
+			.handler(async ({ skillId, referencePaths = [], linkedFilePaths = [] }: ReadSkillInput) => {
 				try {
 					const skill = await this.agentSkillsService.getSkill(agentId, projectId, skillId);
-					const { references, ...body } = skill;
-					const requestedPaths = new Set(referencePaths);
-					const knownPaths = new Set(references?.map((reference) => reference.path) ?? []);
-					const missingPaths = referencePaths.filter((path) => !knownPaths.has(path));
+					const { body, linkedFiles } = splitSkillLinkedFiles(skill);
+					const requestedPaths = new Set([...referencePaths, ...linkedFilePaths]);
+					const knownPaths = new Set(
+						AGENT_SKILL_LINKED_FILE_GROUPS.flatMap((group) =>
+							linkedFiles[group].map((file) => file.path),
+						),
+					);
+					const missingPaths = [...requestedPaths].filter((path) => !knownPaths.has(path));
 					if (missingPaths.length > 0) {
 						return {
 							ok: false,
 							errors: [
 								{
-									message: `Reference path${missingPaths.length === 1 ? '' : 's'} not found: ${missingPaths.join(', ')}`,
+									message: `Linked file path${missingPaths.length === 1 ? '' : 's'} not found: ${missingPaths.join(', ')}`,
 								},
 							],
 						};
@@ -1092,15 +1144,22 @@ export class AgentsBuilderToolsService {
 						id: skillId,
 						skill: {
 							...body,
-							...(references
-								? {
-										references: references.map((reference) => ({
-											path: reference.path,
-											sizeBytes: new TextEncoder().encode(reference.content).byteLength,
-											...(requestedPaths.has(reference.path) ? { content: reference.content } : {}),
-										})),
-									}
-								: {}),
+							...Object.fromEntries(
+								AGENT_SKILL_LINKED_FILE_GROUPS.flatMap((group) =>
+									linkedFiles[group].length > 0
+										? [
+												[
+													group,
+													linkedFiles[group].map((file) => ({
+														path: file.path,
+														sizeBytes: new TextEncoder().encode(file.content).byteLength,
+														...(requestedPaths.has(file.path) ? { content: file.content } : {}),
+													})),
+												],
+											]
+										: [],
+								),
+							),
 						},
 					};
 				} catch (e) {
@@ -1143,16 +1202,30 @@ export class AgentsBuilderToolsService {
 			.description(
 				'Update selected fields of an existing target-agent skill in place, preserving its id and ' +
 					'agent config reference. Pass null for allowedTools to remove the tool restriction, or null ' +
-					'for references to remove all references; empty arrays are invalid. Returns ' +
+					'for a linked file group to remove that group; empty arrays are invalid. Returns ' +
 					'{ ok: true, id, name, configMutated: true, agentId } or { ok: false, errors }.',
 			)
 			.input(updateSkillInputSchema)
 			.handler(async ({ skillId, updates }: UpdateSkillInput) => {
-				const { allowedTools, references, ...requiredUpdates } = updates;
+				const {
+					allowedTools,
+					references,
+					templates,
+					scripts,
+					assets,
+					examples,
+					other,
+					...requiredUpdates
+				} = updates;
 				const normalizedUpdates = {
 					...requiredUpdates,
 					...(allowedTools !== undefined ? { allowedTools: allowedTools ?? undefined } : {}),
 					...(references !== undefined ? { references: references ?? undefined } : {}),
+					...(templates !== undefined ? { templates: templates ?? undefined } : {}),
+					...(scripts !== undefined ? { scripts: scripts ?? undefined } : {}),
+					...(assets !== undefined ? { assets: assets ?? undefined } : {}),
+					...(examples !== undefined ? { examples: examples ?? undefined } : {}),
+					...(other !== undefined ? { other: other ?? undefined } : {}),
 				};
 
 				try {

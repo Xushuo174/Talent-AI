@@ -35,7 +35,9 @@ ${catalog}
 When deciding whether to load a skill:
 - Match the user's request against the skill name and description.
 - If one skill clearly matches, call load_skill once with \`{ "skillId": "<id>" }\`, then follow the returned instructions.
-- If a loaded skill references a supporting file, call load_skill with \`{ "skillId": "<id>", "filePath": "<relative path>" }\`.
+- A loaded skill can list references, templates, scripts, assets, examples, and other linked files. Load only the files needed for the current request.
+- To read a listed file, call load_skill with \`{ "skillId": "<id>", "filePath": "<relative path>" }\`.
+- Treat scripts as source instructions. Do not claim that a script ran unless a separate execution tool ran it.
 - If the relevant skill was already loaded for this request, do not call load_skill again.
 - If no skill clearly matches, do not call load_skill.
 - Do not load a skill just because it is listed here.`;

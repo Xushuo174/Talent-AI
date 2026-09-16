@@ -324,6 +324,18 @@ describe('buildFromJson()', () => {
 								content: '# Guide',
 							},
 						],
+						templates: [
+							{
+								path: 'templates/summary.md',
+								content: '# Summary template',
+							},
+						],
+						scripts: [
+							{
+								path: 'scripts/format.py',
+								content: 'print("format")',
+							},
+						],
 					},
 					unused_skill: {
 						name: 'Unused skill',
@@ -348,6 +360,8 @@ describe('buildFromJson()', () => {
 		expect(loadedText).toContain('[Skill: "Summarize notes"]');
 		expect(loadedText).toContain('Extract decisions and action items.');
 		expect(loadedText).toContain('filePath: "references/guide.md"');
+		expect(loadedText).toContain('filePath: "templates/summary.md"');
+		expect(loadedText).toContain('filePath: "scripts/format.py"');
 
 		await expect(
 			loadSkill!.handler?.({ skillId: 'summarize_notes', filePath: 'references/guide.md' }, {}),
@@ -359,6 +373,15 @@ describe('buildFromJson()', () => {
 			content: '# Guide',
 			bytes: 7,
 			sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+		});
+
+		await expect(
+			loadSkill!.handler?.({ skillId: 'summarize_notes', filePath: 'scripts/format.py' }, {}),
+		).resolves.toMatchObject({
+			ok: true,
+			success: true,
+			filePath: 'scripts/format.py',
+			content: 'print("format")',
 		});
 
 		await expect(loadSkill!.handler?.({ skillId: 'unused_skill' }, {})).resolves.toMatchObject({

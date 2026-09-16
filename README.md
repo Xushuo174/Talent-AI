@@ -74,3 +74,23 @@ pnpm.cmd start
 ## Demo
 
 参见 [Loop Engineering 工作流说明](workflows/loop-engineering/README.md)。
+
+## Skill 文件夹导入
+
+Agent Builder 的 **Upload folder** 支持导入完整的文本型 Skill 包。系统读取根目录的 `SKILL.md`，并按路径保存以下文件组：
+
+- `references/`：Markdown 参考资料。
+- `templates/`：文本模板。
+- `scripts/`：Python、Shell、PowerShell、JavaScript、TypeScript 等脚本源码。
+- `assets/`：CSS、SVG、JSON 等文本资源。
+- `examples/`：示例文件。
+- 其他路径：README、LICENSE、子 Skill 说明等文本文件。
+
+运行时继续使用内置的 `load_skill` 工具。Agent 先加载 `SKILL.md`，再根据任务按相对路径读取需要的关联文件，避免把整个 Skill 包一次性放进上下文。
+
+当前边界：
+
+- 最多导入 128 个文本关联文件；单个文件不超过 512 KB；总量不超过 2 MB。
+- `.env`、`.npmrc`、`.pypirc` 和常见依赖、缓存目录会被忽略。
+- PNG、DOC、DOCX 等二进制文件会跳过，并在导入界面列出提示。
+- `scripts/` 中的文件是可读取的源码。`load_skill` 不执行脚本。脚本执行需要后续接入独立的沙箱工具，并配置权限、超时、网络和文件访问策略。

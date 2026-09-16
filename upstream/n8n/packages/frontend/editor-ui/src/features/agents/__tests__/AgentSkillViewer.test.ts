@@ -93,7 +93,6 @@ describe('AgentSkillViewer', () => {
 				description: 'Use for notes',
 				instructions: '# Playbook\nFollow these steps.',
 				allowedTools: ['load_workflow'],
-				references: undefined,
 			}),
 		);
 		expect(importedSkill).not.toHaveProperty('recommendedTools');
@@ -128,23 +127,66 @@ describe('AgentSkillViewer', () => {
 		]);
 	});
 
-	it('rejects scripts in imported folders', async () => {
+	it('imports grouped text files and reports skipped binary files', async () => {
 		const wrapper = mountViewer();
 		const skillFile = makeFile(
 			'---\nname: Research\ndescription: Use for research\n---\nMain instructions',
 			'skill-folder/SKILL.md',
 		);
 		const scriptFile = makeFile('print("no")', 'skill-folder/scripts/run.py');
+		const templateFile = makeFile('# Template', 'skill-folder/templates/report.md');
+		const readmeFile = makeFile('# Readme', 'skill-folder/README.md');
+		const imageFile = makeFile('binary', 'skill-folder/assets/preview.png');
 		const input = wrapper.find('[data-testid="agent-skill-folder-file-input"]');
 		Object.defineProperty(input.element, 'files', {
-			value: [skillFile, scriptFile],
+			value: [skillFile, scriptFile, templateFile, readmeFile, imageFile],
 			configurable: true,
 		});
 
 		await input.trigger('change');
 		await flushPromises();
 
-		expect(wrapper.text()).toContain('agents.builder.skills.import.scriptsUnsupported');
+		expect(wrapper.emitted('update:skill')?.at(-1)).toEqual([
+			expect.objectContaining({
+				scripts: [{ path: 'scripts/run.py', content: 'print("no")' }],
+				templates: [{ path: 'templates/report.md', content: '# Template' }],
+				other: [{ path: 'README.md', content: '# Readme' }],
+			}),
+		]);
+		expect(wrapper.text()).toContain('agents.builder.skills.import.skippedFiles');
+	});
+
+	it('uses the root SKILL.md when the folder contains nested skills', async () => {
+		const wrapper = mountViewer();
+		const nestedSkill = makeFile(
+			'---\nname: Nested\ndescription: Nested skill\n---\nNested instructions',
+			'skill-folder/sub-skills/nested/SKILL.md',
+		);
+		const rootSkill = makeFile(
+			'---\nname: Root\ndescription: Root skill\n---\nRoot instructions',
+			'skill-folder/SKILL.md',
+		);
+		const input = wrapper.find('[data-testid="agent-skill-folder-file-input"]');
+		Object.defineProperty(input.element, 'files', {
+			value: [nestedSkill, rootSkill],
+			configurable: true,
+		});
+
+		await input.trigger('change');
+		await flushPromises();
+
+		expect(wrapper.emitted('update:skill')?.at(-1)).toEqual([
+			expect.objectContaining({
+				name: 'Root',
+				instructions: 'Root instructions',
+				other: [
+					{
+						path: 'sub-skills/nested/SKILL.md',
+						content: '---\nname: Nested\ndescription: Nested skill\n---\nNested instructions',
+					},
+				],
+			}),
+		]);
 	});
 
 	it('renames the selected reference without changing its directory', async () => {

@@ -173,10 +173,20 @@ export interface AgentIntegrationConnectResponse {
 	status: Extract<AgentChannelRuntimeStatus, 'configured' | 'connected'>;
 }
 
-export interface AgentSkillReference {
+export interface AgentSkillFile {
 	path: string;
 	content: string;
 }
+
+export type AgentSkillReference = AgentSkillFile;
+
+export type AgentSkillLinkedFileGroup =
+	| 'references'
+	| 'templates'
+	| 'scripts'
+	| 'assets'
+	| 'examples'
+	| 'other';
 
 export interface AgentSkill {
 	name: string;
@@ -184,6 +194,11 @@ export interface AgentSkill {
 	instructions: string;
 	allowedTools?: string[];
 	references?: AgentSkillReference[];
+	templates?: AgentSkillFile[];
+	scripts?: AgentSkillFile[];
+	assets?: AgentSkillFile[];
+	examples?: AgentSkillFile[];
+	other?: AgentSkillFile[];
 }
 
 export interface AgentSkillMutationResponse {

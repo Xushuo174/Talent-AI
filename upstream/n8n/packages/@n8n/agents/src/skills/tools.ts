@@ -218,17 +218,15 @@ async function loadSkill(
 	}
 
 	const content = cap(skill.instructions);
-	const linkedFilePaths = LINKED_FILE_GROUPS.flatMap((group) => skillEntry.linkedFiles[group]).map(
-		(file) => file.path,
-	);
-	const header = [
-		activationEnvelope(skillEntry),
-		...(linkedFilePaths.length > 0
+	const linkedFileLines = LINKED_FILE_GROUPS.flatMap((group) => {
+		const paths = skillEntry.linkedFiles[group].map((file) => file.path);
+		return paths.length > 0
 			? [
-					`[Linked files — load via load_skill with filePath: ${linkedFilePaths.map(envelopeValue).join(', ')}]`,
+					`[Linked ${group} — load via load_skill with filePath: ${paths.map(envelopeValue).join(', ')}]`,
 				]
-			: []),
-	];
+			: [];
+	});
+	const header = [activationEnvelope(skillEntry), ...linkedFileLines];
 	return {
 		type: 'content',
 		value: [{ type: 'text', text: `${header.join('\n')}\n\n${content}` }],

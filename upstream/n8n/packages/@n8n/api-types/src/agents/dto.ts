@@ -157,6 +157,11 @@ const updateAgentSkillShape = {
 	instructions: agentSkillShape.instructions.optional(),
 	allowedTools: agentSkillShape.allowedTools.optional(),
 	references: agentSkillShape.references.optional(),
+	templates: agentSkillShape.templates.optional(),
+	scripts: agentSkillShape.scripts.optional(),
+	assets: agentSkillShape.assets.optional(),
+	examples: agentSkillShape.examples.optional(),
+	other: agentSkillShape.other.optional(),
 };
 
 const updateAgentSkillSchema = z.object(updateAgentSkillShape).strict();

@@ -2,6 +2,9 @@
 import { computed, ref } from 'vue';
 import {
 	AGENT_SKILL_INSTRUCTIONS_MAX_LENGTH,
+	AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES,
+	AGENT_SKILL_LINKED_FILE_MAX_COUNT,
+	AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES,
 	AGENT_SKILL_REFERENCE_MAX_COUNT,
 } from '@n8n/api-types';
 import { N8nButton, N8nCallout, N8nHeading, N8nIcon } from '@n8n/design-system';
@@ -11,8 +14,13 @@ import Modal from '@/app/components/Modal.vue';
 import { useToast } from '@n8n/composables/useToast';
 import { useUIStore } from '@/app/stores/ui.store';
 import { useAgentTelemetry } from '../composables/useAgentTelemetry';
-import type { AgentSkill } from '../types';
+import type { AgentSkill, AgentSkillLinkedFileGroup } from '../types';
 import { normalizeAgentSkillForSave } from '../utils/agentSkill';
+import {
+	AGENT_SKILL_FILE_GROUPS,
+	findAgentSkillFile,
+	getAgentSkillFiles,
+} from '../utils/agentSkillFiles';
 import AgentSkillFileNav from './AgentSkillFileNav.vue';
 import AgentSkillViewer, { type AgentSkillAllowedToolOption } from './AgentSkillViewer.vue';
 
@@ -49,7 +57,11 @@ const skill = ref<AgentSkill>(
 		description: props.data.skill?.description ?? '',
 		instructions: props.data.skill?.instructions ?? '',
 		...(props.data.skill?.allowedTools ? { allowedTools: props.data.skill.allowedTools } : {}),
-		...(props.data.skill?.references ? { references: props.data.skill.references } : {}),
+		...Object.fromEntries(
+			AGENT_SKILL_FILE_GROUPS.flatMap((group) =>
+				props.data.skill?.[group] ? [[group, props.data.skill[group]]] : [],
+			),
+		),
 	}),
 );
 const submitted = ref(false);
@@ -100,6 +112,28 @@ const validationErrors = computed<Partial<Record<keyof AgentSkill, string>>>(() 
 	if (skill.value.references?.some((reference) => !reference.content.trim())) {
 		errors.references = i18n.baseText('agents.builder.skills.references.invalidSummary');
 	}
+	for (const group of AGENT_SKILL_FILE_GROUPS) {
+		if (
+			getAgentSkillFiles(skill.value, group).some(
+				(file) =>
+					!file.content.trim() ||
+					new TextEncoder().encode(file.content).byteLength >
+						AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES,
+			)
+		) {
+			errors[group] = i18n.baseText('agents.builder.skills.files.invalidSummary' as BaseTextKey);
+		}
+	}
+	const allFiles = AGENT_SKILL_FILE_GROUPS.flatMap((group) =>
+		getAgentSkillFiles(skill.value, group),
+	);
+	if (
+		allFiles.length > AGENT_SKILL_LINKED_FILE_MAX_COUNT ||
+		allFiles.reduce((total, file) => total + new TextEncoder().encode(file.content).byteLength, 0) >
+			AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES
+	) {
+		errors.other = i18n.baseText('agents.builder.skills.files.invalidSummary' as BaseTextKey);
+	}
 
 	return errors;
 });
@@ -111,10 +145,7 @@ const canSave = computed(() => formIsValid.value);
 
 function onSkillUpdate(updates: Partial<AgentSkill>) {
 	skill.value = normalizeSkill({ ...skill.value, ...updates });
-	if (
-		selectedPath.value !== SKILL_FILE &&
-		!skill.value.references?.some((reference) => reference.path === selectedPath.value)
-	) {
+	if (selectedPath.value !== SKILL_FILE && !findAgentSkillFile(skill.value, selectedPath.value)) {
 		selectedPath.value = SKILL_FILE;
 	}
 }
@@ -137,10 +168,10 @@ function onAddReference() {
 	selectedPath.value = path;
 }
 
-function onRemoveReference(path: string) {
+function onRemoveFile(group: AgentSkillLinkedFileGroup, path: string) {
 	skill.value = {
 		...skill.value,
-		references: (skill.value.references ?? []).filter((reference) => reference.path !== path),
+		[group]: getAgentSkillFiles(skill.value, group).filter((file) => file.path !== path),
 	};
 	if (selectedPath.value === path) {
 		selectedPath.value = SKILL_FILE;
@@ -181,11 +212,7 @@ function closeModal() {
 function onSave() {
 	submitted.value = true;
 	if (!canSave.value) {
-		const message =
-			validationErrors.value.name ??
-			validationErrors.value.description ??
-			validationErrors.value.instructions ??
-			validationErrors.value.references;
+		const message = Object.values(validationErrors.value).find(Boolean);
 		showMessage({
 			title: i18n.baseText('agents.builder.skills.saveError'),
 			...(message ? { message } : {}),
@@ -199,7 +226,11 @@ function onSave() {
 		description: skill.value.description.trim(),
 		instructions: skill.value.instructions,
 		...(skill.value.allowedTools ? { allowedTools: skill.value.allowedTools } : {}),
-		...(skill.value.references ? { references: skill.value.references } : {}),
+		...Object.fromEntries(
+			AGENT_SKILL_FILE_GROUPS.flatMap((group) =>
+				skill.value[group] ? [[group, skill.value[group]]] : [],
+			),
+		),
 	});
 
 	props.data.onConfirm({ id: props.data.skillId, skill: payload });
@@ -240,7 +271,7 @@ function onRemove() {
 					:selected-path="selectedPath"
 					:add-reference-disabled="!canAddReference"
 					@add-reference="onAddReference"
-					@remove-reference="onRemoveReference"
+					@remove-file="onRemoveFile"
 					@select="selectedPath = $event"
 				/>
 				<AgentSkillViewer

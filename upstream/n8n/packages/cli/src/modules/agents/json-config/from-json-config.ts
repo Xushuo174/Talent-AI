@@ -24,13 +24,14 @@ import {
 } from '@n8n/ai-utilities/agent-config';
 import type {
 	AgentSkill,
+	AgentSkillFile,
 	AgentJsonConfig,
 	AgentJsonMcpServerConfig,
 	AgentJsonMemoryConfig,
 	AgentJsonToolConfig,
 	AgentJsonSkillConfig,
 } from '@n8n/api-types';
-import { MANAGED_CREDENTIAL_TOKEN } from '@n8n/api-types';
+import { AGENT_SKILL_LINKED_FILE_GROUPS, MANAGED_CREDENTIAL_TOKEN } from '@n8n/api-types';
 import { createHash } from 'crypto';
 import { z } from 'zod';
 
@@ -371,10 +372,7 @@ function getConfiguredSkillSource(
 ): RuntimeSkillSource {
 	const seen = new Set<string>();
 	const configured: RuntimeSkill[] = [];
-	const referencesBySkillId = new Map<
-		string,
-		Map<string, NonNullable<AgentSkill['references']>[number]>
-	>();
+	const linkedFilesBySkillId = new Map<string, Map<string, AgentSkillFile>>();
 
 	for (const ref of refs) {
 		if (seen.has(ref.id)) continue;
@@ -382,10 +380,7 @@ function getConfiguredSkillSource(
 		const skill = skills[ref.id];
 		if (!skill) throw new Error(`Skill "${ref.id}" not found in stored skill bodies`);
 		const linkedFiles = linkedFilesForSkill(skill);
-		referencesBySkillId.set(
-			ref.id,
-			new Map((skill.references ?? []).map((reference) => [reference.path, reference])),
-		);
+		linkedFilesBySkillId.set(ref.id, linkedFileContentByPath(skill));
 		configured.push({
 			id: ref.id,
 			name: skill.name,
@@ -401,32 +396,42 @@ function getConfiguredSkillSource(
 		registry: createRegistry(configured),
 		loadSkill: async (skillId) => (await Promise.resolve(skillsById.get(skillId))) ?? null,
 		loadFile: async (skillId, filePath) => {
-			const reference = referencesBySkillId.get(skillId)?.get(filePath);
-			if (!reference) return await Promise.resolve(null);
+			const linkedFile = linkedFilesBySkillId.get(skillId)?.get(filePath);
+			if (!linkedFile) return await Promise.resolve(null);
 			return await Promise.resolve({
 				skillId,
-				filePath: reference.path,
-				content: reference.content,
-				bytes: Buffer.byteLength(reference.content, 'utf8'),
-				sha256: createHash('sha256').update(reference.content).digest('hex'),
+				filePath: linkedFile.path,
+				content: linkedFile.content,
+				bytes: Buffer.byteLength(linkedFile.content, 'utf8'),
+				sha256: createHash('sha256').update(linkedFile.content).digest('hex'),
 			});
 		},
 	};
 }
 
 function linkedFilesForSkill(skill: AgentSkill): RuntimeSkillLinkedFiles {
+	const metadataFor = (files: AgentSkillFile[] | undefined) =>
+		(files ?? []).map((file) => ({
+			path: file.path,
+			bytes: Buffer.byteLength(file.content, 'utf8'),
+			sha256: createHash('sha256').update(file.content).digest('hex'),
+		}));
 	return {
-		references: (skill.references ?? []).map((reference) => ({
-			path: reference.path,
-			bytes: Buffer.byteLength(reference.content, 'utf8'),
-			sha256: createHash('sha256').update(reference.content).digest('hex'),
-		})),
-		templates: [],
-		scripts: [],
-		assets: [],
-		examples: [],
-		other: [],
+		references: metadataFor(skill.references),
+		templates: metadataFor(skill.templates),
+		scripts: metadataFor(skill.scripts),
+		assets: metadataFor(skill.assets),
+		examples: metadataFor(skill.examples),
+		other: metadataFor(skill.other),
 	};
+}
+
+function linkedFileContentByPath(skill: AgentSkill): Map<string, AgentSkillFile> {
+	return new Map(
+		AGENT_SKILL_LINKED_FILE_GROUPS.flatMap((group) =>
+			(skill[group] ?? []).map((file) => [file.path, file] as const),
+		),
+	);
 }
 
 async function resolveToolRef(

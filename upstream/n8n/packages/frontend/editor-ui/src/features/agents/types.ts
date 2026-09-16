@@ -3,11 +3,20 @@ import type {
 	AgentJsonToolConfig,
 	AgentReasoningLevel,
 	AgentSkill,
+	AgentSkillFile,
+	AgentSkillLinkedFileGroup,
 	AgentSkillReference,
 } from '@n8n/api-types';
 import type { Agent, ToolDescriptor, CustomToolEntry } from './agent.types';
 
-export type { ToolDescriptor, CustomToolEntry, AgentSkill, AgentSkillReference };
+export type {
+	ToolDescriptor,
+	CustomToolEntry,
+	AgentSkill,
+	AgentSkillFile,
+	AgentSkillLinkedFileGroup,
+	AgentSkillReference,
+};
 
 export interface AgentContinueLoadedEvent {
 	sessionId: string;

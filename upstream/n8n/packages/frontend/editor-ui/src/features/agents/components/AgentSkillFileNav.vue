@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import { N8nButton, N8nIcon, N8nText } from '@n8n/design-system';
 import { useI18n, type BaseTextKey } from '@n8n/i18n';
 
-import type { AgentSkill } from '../types';
+import type { AgentSkill, AgentSkillLinkedFileGroup } from '../types';
+import { AGENT_SKILL_FILE_GROUPS, getAgentSkillFiles } from '../utils/agentSkillFiles';
 
 const SKILL_FILE = 'SKILL.md';
 
@@ -21,18 +22,30 @@ const props = withDefaults(
 const emit = defineEmits<{
 	select: [path: string];
 	'add-reference': [];
-	'remove-reference': [path: string];
+	'remove-file': [group: AgentSkillLinkedFileGroup, path: string];
 }>();
 
 const i18n = useI18n();
-const references = computed(() => props.skill.references ?? []);
+const groups = computed(() =>
+	AGENT_SKILL_FILE_GROUPS.flatMap((group) => {
+		const files = getAgentSkillFiles(props.skill, group);
+		return group === 'references' || files.length > 0 ? [{ group, files }] : [];
+	}),
+);
 
 function isSelected(path: string) {
 	return props.selectedPath === path;
 }
 
 function testIdForPath(path: string) {
-	return `agent-skill-reference-nav-item-${path.replace(/[^A-Za-z0-9_-]+/g, '-')}`;
+	const prefix = path.startsWith('references/')
+		? 'agent-skill-reference-nav-item'
+		: 'agent-skill-file-nav-item';
+	return `${prefix}-${path.replace(/[^A-Za-z0-9_-]+/g, '-')}`;
+}
+
+function groupTitle(group: AgentSkillLinkedFileGroup): string {
+	return i18n.baseText(`agents.builder.skills.files.group.${group}` as BaseTextKey);
 }
 </script>
 
@@ -53,12 +66,13 @@ function testIdForPath(path: string) {
 			<N8nText size="small" :bold="true" :class="$style.path">{{ SKILL_FILE }}</N8nText>
 		</button>
 
-		<div :class="$style.section">
+		<div v-for="entry in groups" :key="entry.group" :class="$style.section">
 			<div :class="$style.sectionHeader">
 				<N8nText size="xsmall" color="text-light" :bold="true" :class="$style.sectionTitle">
-					{{ i18n.baseText('agents.builder.skills.references.title') }}
+					{{ groupTitle(entry.group) }}
 				</N8nText>
 				<N8nButton
+					v-if="entry.group === 'references'"
 					:class="$style.addReference"
 					variant="ghost"
 					size="xsmall"
@@ -71,7 +85,7 @@ function testIdForPath(path: string) {
 				/>
 			</div>
 			<N8nText
-				v-if="references.length === 0"
+				v-if="entry.group === 'references' && entry.files.length === 0"
 				size="xsmall"
 				color="text-light"
 				:class="$style.sectionTitle"
@@ -79,30 +93,30 @@ function testIdForPath(path: string) {
 				{{ i18n.baseText('agents.builder.skills.references.empty') }}
 			</N8nText>
 			<div
-				v-for="reference in references"
-				:key="reference.path"
-				:class="[$style.referenceRow, isSelected(reference.path) && $style.selected]"
+				v-for="file in entry.files"
+				:key="file.path"
+				:class="[$style.fileRow, isSelected(file.path) && $style.selected]"
 			>
 				<button
 					type="button"
-					:class="[$style.item, $style.reference]"
-					:aria-current="isSelected(reference.path) ? 'page' : undefined"
-					:aria-label="reference.path"
-					:data-testid="testIdForPath(reference.path)"
-					@click="emit('select', reference.path)"
+					:class="[$style.item, $style.file]"
+					:aria-current="isSelected(file.path) ? 'page' : undefined"
+					:aria-label="file.path"
+					:data-testid="testIdForPath(file.path)"
+					@click="emit('select', file.path)"
 				>
 					<N8nIcon icon="file-text" :size="16" :class="$style.icon" />
-					<N8nText size="small" :class="$style.path">{{ reference.path }}</N8nText>
+					<N8nText size="small" :class="$style.path">{{ file.path }}</N8nText>
 				</button>
 				<N8nButton
-					:class="$style.removeReference"
+					:class="$style.removeFile"
 					variant="ghost"
 					size="xsmall"
 					icon-only
 					icon="trash-2"
-					:aria-label="i18n.baseText('agents.builder.skills.references.remove' as BaseTextKey)"
-					:data-testid="`${testIdForPath(reference.path)}-remove`"
-					@click="emit('remove-reference', reference.path)"
+					:aria-label="i18n.baseText('agents.builder.skills.files.remove' as BaseTextKey)"
+					:data-testid="`${testIdForPath(file.path)}-remove`"
+					@click="emit('remove-file', entry.group, file.path)"
 				/>
 			</div>
 		</div>
@@ -120,6 +134,7 @@ function testIdForPath(path: string) {
 	flex-direction: column;
 	gap: var(--spacing--sm);
 	background: var(--color--background--light);
+	overflow-y: auto;
 }
 
 .section {
@@ -158,7 +173,7 @@ function testIdForPath(path: string) {
 	flex-shrink: 0;
 }
 
-.referenceRow {
+.fileRow {
 	display: flex;
 	align-items: center;
 	gap: var(--spacing--3xs);
@@ -166,7 +181,7 @@ function testIdForPath(path: string) {
 	min-width: 0;
 	border-radius: var(--border-radius-base);
 
-	.removeReference {
+	.removeFile {
 		opacity: 0;
 	}
 
@@ -174,13 +189,13 @@ function testIdForPath(path: string) {
 	&:focus-within {
 		background: var(--color--background--light-2);
 
-		.removeReference {
+		.removeFile {
 			opacity: 1;
 		}
 	}
 }
 
-.reference {
+.file {
 	flex: 1;
 	padding-left: var(--spacing--xs);
 
@@ -193,14 +208,13 @@ function testIdForPath(path: string) {
 	padding-inline: var(--spacing--2xs);
 }
 
-.addReference {
+.addReference,
+.removeFile {
 	width: var(--spacing--lg);
 	height: var(--spacing--lg);
 }
 
-.removeReference {
-	width: var(--spacing--lg);
-	height: var(--spacing--lg);
+.removeFile {
 	margin-left: auto;
 	margin-right: var(--spacing--2xs);
 	flex-shrink: 0;

@@ -2,6 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue';
 import {
 	AGENT_SKILL_INSTRUCTIONS_MAX_LENGTH,
+	AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES,
+	AGENT_SKILL_LINKED_FILE_MAX_COUNT,
+	AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES,
 	AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES,
 	AGENT_SKILL_REFERENCE_MAX_COUNT,
 	AGENT_SKILL_REFERENCES_TOTAL_MAX_BYTES,
@@ -24,7 +27,18 @@ import { useI18n, type BaseTextKey } from '@n8n/i18n';
 
 import type { Rule, RuleGroup } from '@/Interface';
 import { AgentSkillImportError, useAgentSkillImport } from '../composables/useAgentSkillImport';
-import type { AgentSkill, AgentSkillReference } from '../types';
+import type {
+	AgentSkill,
+	AgentSkillFile,
+	AgentSkillLinkedFileGroup,
+	AgentSkillReference,
+} from '../types';
+import {
+	AGENT_SKILL_FILE_GROUPS,
+	countAgentSkillFiles,
+	findAgentSkillFile,
+	getAgentSkillFiles,
+} from '../utils/agentSkillFiles';
 import { formatToolNameForDisplay } from '../utils/toolDisplayName';
 import AgentChipButton from './AgentChipButton.vue';
 
@@ -84,6 +98,7 @@ const name = ref(props.skill.name);
 const description = ref(props.skill.description);
 const referenceFileName = ref('');
 const fileError = ref('');
+const fileWarning = ref('');
 const addToolDialogOpen = ref(false);
 const formValidation = reactive({
 	name: false,
@@ -163,13 +178,35 @@ const referencesValid = computed(
 		!referencesTotalError.value &&
 		!referencesCountError.value,
 );
+const nonReferenceFiles = computed(() =>
+	AGENT_SKILL_FILE_GROUPS.filter((group) => group !== 'references').flatMap((group) =>
+		getAgentSkillFiles(props.skill, group),
+	),
+);
+const linkedFilesTotalBytes = computed(() =>
+	AGENT_SKILL_FILE_GROUPS.flatMap((group) => getAgentSkillFiles(props.skill, group)).reduce(
+		(total, file) => total + utf8Bytes(file.content),
+		0,
+	),
+);
+const linkedFilesValid = computed(
+	() =>
+		nonReferenceFiles.value.every(
+			(file) =>
+				Boolean(file.content.trim()) &&
+				utf8Bytes(file.content) <= AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES,
+		) &&
+		countAgentSkillFiles(props.skill) <= AGENT_SKILL_LINKED_FILE_MAX_COUNT &&
+		linkedFilesTotalBytes.value <= AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES,
+);
 const formIsValid = computed(
 	() =>
 		formValidation.name &&
 		formValidation.description &&
 		(!selectedReference.value || formValidation.referenceName) &&
 		instructionsValid.value &&
-		referencesValid.value,
+		referencesValid.value &&
+		linkedFilesValid.value,
 );
 const instructionsByteCount = computed(() =>
 	i18n.baseText('agents.builder.skills.instructions.byteCount', {
@@ -180,9 +217,54 @@ const instructionsByteCount = computed(() =>
 	}),
 );
 const isSkillFileSelected = computed(() => props.selectedPath === SKILL_FILE);
+const selectedLinkedFile = computed(() => findAgentSkillFile(props.skill, props.selectedPath));
 const selectedReference = computed(() =>
 	(props.skill.references ?? []).find((reference) => reference.path === props.selectedPath),
 );
+const selectedLinkedFileByteCount = computed(() => {
+	const selected = selectedLinkedFile.value;
+	const max =
+		selected?.group === 'references'
+			? AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES
+			: AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES;
+	return i18n.baseText('agents.builder.skills.references.byteCount' as BaseTextKey, {
+		interpolate: {
+			count: (selected ? utf8Bytes(selected.file.content) : 0).toLocaleString(),
+			max: max.toLocaleString(),
+		},
+	});
+});
+const selectedLinkedFileError = computed(() => {
+	const selected = selectedLinkedFile.value;
+	if (!selected) return '';
+	if (!selected.file.content.trim()) {
+		return i18n.baseText('agents.builder.skills.files.contentRequired' as BaseTextKey);
+	}
+	const max =
+		selected.group === 'references'
+			? AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES
+			: AGENT_SKILL_LINKED_FILE_CONTENT_MAX_BYTES;
+	if (utf8Bytes(selected.file.content) > max) {
+		return i18n.baseText('agents.builder.skills.files.contentMaxBytes' as BaseTextKey, {
+			interpolate: { max: max.toLocaleString() },
+		});
+	}
+	return '';
+});
+const linkedFilesError = computed(() => {
+	if (countAgentSkillFiles(props.skill) > AGENT_SKILL_LINKED_FILE_MAX_COUNT) {
+		return i18n.baseText('agents.builder.skills.files.maxCount' as BaseTextKey, {
+			interpolate: { max: AGENT_SKILL_LINKED_FILE_MAX_COUNT.toLocaleString() },
+		});
+	}
+	if (linkedFilesTotalBytes.value > AGENT_SKILL_LINKED_FILES_TOTAL_MAX_BYTES) {
+		return i18n.baseText('agents.builder.skills.import.linkedFilesTooLarge' as BaseTextKey);
+	}
+	if (!linkedFilesValid.value) {
+		return i18n.baseText('agents.builder.skills.files.invalidSummary' as BaseTextKey);
+	}
+	return '';
+});
 const availableToolsByName = computed(
 	() => new Map(props.availableTools.map((tool) => [tool.name, tool])),
 );
@@ -200,30 +282,6 @@ const hasAllowedTools = computed(() => selectedAllowedTools.value.length > 0);
 const addableAllowedTools = computed(() => {
 	const selected = new Set(props.skill.allowedTools ?? []);
 	return props.availableTools.filter((tool) => !selected.has(tool.name));
-});
-const selectedReferenceByteCount = computed(() =>
-	i18n.baseText('agents.builder.skills.references.byteCount' as BaseTextKey, {
-		interpolate: {
-			count: (selectedReference.value
-				? referenceBytes(selectedReference.value)
-				: 0
-			).toLocaleString(),
-			max: AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES.toLocaleString(),
-		},
-	}),
-);
-const selectedReferenceError = computed(() => {
-	const reference = selectedReference.value;
-	if (!reference) return '';
-	if (!reference.content.trim())
-		return i18n.baseText('agents.builder.skills.references.contentRequired');
-	const bytes = referenceBytes(reference);
-	if (bytes > AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES) {
-		return i18n.baseText('agents.builder.skills.references.contentMaxBytes', {
-			interpolate: { max: AGENT_SKILL_REFERENCE_CONTENT_MAX_BYTES.toLocaleString() },
-		});
-	}
-	return '';
 });
 const referencesError = computed(() => {
 	if (referencesCountError.value) return referencesCountError.value;
@@ -284,7 +342,20 @@ async function importFiles(files: File[], source: 'skill_file' | 'folder') {
 	let importedSkill: AgentSkill;
 	try {
 		fileError.value = '';
-		importedSkill = await importSkillFiles(files);
+		fileWarning.value = '';
+		const result = await importSkillFiles(files);
+		importedSkill = result.skill;
+		if (result.skippedFiles.length > 0) {
+			fileWarning.value = i18n.baseText(
+				'agents.builder.skills.import.skippedFiles' as BaseTextKey,
+				{
+					interpolate: {
+						count: result.skippedFiles.length.toLocaleString(),
+						files: result.skippedFiles.slice(0, 5).join(', '),
+					},
+				},
+			);
+		}
 	} catch (error) {
 		fileError.value =
 			error instanceof AgentSkillImportError
@@ -328,13 +399,22 @@ function replaceReference(updated: AgentSkillReference, currentPath = updated.pa
 	});
 }
 
-function onReferenceInput(value: string) {
-	const reference = selectedReference.value;
-	if (!reference) return;
-	replaceReference({
-		path: reference.path,
-		content: value,
+function replaceLinkedFile(
+	group: AgentSkillLinkedFileGroup,
+	updated: AgentSkillFile,
+	currentPath = updated.path,
+) {
+	emit('update:skill', {
+		[group]: getAgentSkillFiles(props.skill, group).map((file) =>
+			file.path === currentPath ? updated : file,
+		),
 	});
+}
+
+function onLinkedFileInput(value: string) {
+	const selected = selectedLinkedFile.value;
+	if (!selected) return;
+	replaceLinkedFile(selected.group, { path: selected.file.path, content: value });
 }
 
 function onReferenceNameInput(value: string | number | boolean | null | undefined) {
@@ -464,7 +544,11 @@ watch(formIsValid, (valid) => emit('update:valid', valid), { immediate: true });
 				/>
 			</div>
 			<N8nText v-if="fileError" size="small" color="danger">{{ fileError }}</N8nText>
+			<N8nText v-if="fileWarning" size="small" color="warning">{{ fileWarning }}</N8nText>
 			<N8nText v-if="referencesError" size="small" color="danger">{{ referencesError }}</N8nText>
+			<N8nText v-if="linkedFilesError && !referencesError" size="small" color="danger">{{
+				linkedFilesError
+			}}</N8nText>
 			<N8nText v-if="props.errors?.references && !referencesError" size="small" color="danger">{{
 				props.errors.references
 			}}</N8nText>
@@ -590,8 +674,8 @@ watch(formIsValid, (valid) => emit('update:valid', valid), { immediate: true });
 			</div>
 		</template>
 
-		<div v-else-if="selectedReference" :class="[$style.field, $style.instructionsField]">
-			<div :class="$style.field">
+		<div v-else-if="selectedLinkedFile" :class="[$style.field, $style.instructionsField]">
+			<div v-if="selectedReference" :class="$style.field">
 				<N8nFormInput
 					:model-value="referenceFileName"
 					:label="i18n.baseText('agents.builder.skills.references.name.label')"
@@ -610,27 +694,34 @@ watch(formIsValid, (valid) => emit('update:valid', valid), { immediate: true });
 			</div>
 			<N8nInputLabel
 				:class="$style.editorLabel"
-				:label="i18n.baseText('agents.builder.skills.references.content.label')"
+				:label="i18n.baseText('agents.builder.skills.files.content.label' as BaseTextKey)"
 				:required="true"
 				size="small"
 			>
 				<N8nMarkdownEditor
 					:class="$style.editor"
 					:container-class="$style.fullHeightEditor"
-					:model-value="selectedReference.content"
+					:model-value="selectedLinkedFile.file.content"
 					:readonly="props.disabled"
 					max-height="100%"
-					data-testid="agent-skill-reference-editor"
-					@update:model-value="onReferenceInput"
+					:data-testid="
+						selectedLinkedFile.group === 'references'
+							? 'agent-skill-reference-editor'
+							: 'agent-skill-linked-file-editor'
+					"
+					@update:model-value="onLinkedFileInput"
 				/>
 				<div :class="$style.editorMeta">
-					<N8nText v-if="selectedReferenceError" size="small" color="danger">{{
-						selectedReferenceError
+					<N8nText v-if="selectedLinkedFileError" size="small" color="danger">{{
+						selectedLinkedFileError
 					}}</N8nText>
-					<N8nText v-if="referencesError && !selectedReferenceError" size="small" color="danger">{{
-						referencesError
-					}}</N8nText>
-					<N8nText size="xsmall" color="text-light">{{ selectedReferenceByteCount }}</N8nText>
+					<N8nText
+						v-if="linkedFilesError && !selectedLinkedFileError"
+						size="small"
+						color="danger"
+						>{{ linkedFilesError }}</N8nText
+					>
+					<N8nText size="xsmall" color="text-light">{{ selectedLinkedFileByteCount }}</N8nText>
 				</div>
 			</N8nInputLabel>
 		</div>
