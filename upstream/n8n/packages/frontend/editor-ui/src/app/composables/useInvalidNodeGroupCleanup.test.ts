@@ -32,6 +32,33 @@ function createConnection(from: string, to: string): IConnections {
 	};
 }
 
+function createLoopConnections(): IConnections {
+	return {
+		'Pre Loop': {
+			[NodeConnectionTypes.Main]: [
+				[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }],
+			],
+		},
+		'Goal Loop': {
+			[NodeConnectionTypes.Main]: [
+				[{ node: 'Loop Body', type: NodeConnectionTypes.Main, index: 0 }],
+				[{ node: 'Completed', type: NodeConnectionTypes.Main, index: 0 }],
+				[],
+			],
+		},
+		'Loop Body': {
+			[NodeConnectionTypes.Main]: [
+				[{ node: 'Loop Evaluation', type: NodeConnectionTypes.Main, index: 0 }],
+			],
+		},
+		'Loop Evaluation': {
+			[NodeConnectionTypes.Main]: [
+				[{ node: 'Goal Loop', type: NodeConnectionTypes.Main, index: 0 }],
+			],
+		},
+	};
+}
+
 function setupDocumentStore({
 	nodes,
 	connections = {},
@@ -89,6 +116,48 @@ describe('useInvalidNodeGroupCleanup', () => {
 		expect(store.allGroups).toHaveLength(1);
 		expect(showMessageSpy).not.toHaveBeenCalled();
 		expect(trackSpy).not.toHaveBeenCalled();
+	});
+
+	it('keeps a valid semantic loop group with a feedback connection', () => {
+		const store = setupDocumentStore({
+			nodes: [
+				createTestNode({ id: 'pre', name: 'Pre Loop' }),
+				createTestNode({
+					id: 'goal',
+					name: 'Goal Loop',
+					type: 'n8n-nodes-base.goalLoop',
+				}),
+				createTestNode({ id: 'body', name: 'Loop Body' }),
+				createTestNode({
+					id: 'evaluation',
+					name: 'Loop Evaluation',
+					type: 'n8n-nodes-base.loopEvaluation',
+				}),
+				createTestNode({ id: 'completed', name: 'Completed' }),
+			],
+			connections: createLoopConnections(),
+			nodeGroups: [
+				{
+					id: 'loop-group',
+					name: 'Loop Region 1',
+					nodeIds: ['goal', 'body', 'evaluation'],
+					kind: 'loop',
+					loop: {
+						version: 1,
+						controllerNodeId: 'goal',
+						evaluatorNodeId: 'evaluation',
+					},
+				},
+			],
+		});
+
+		const { removeInvalidNodeGroups } = useInvalidNodeGroupCleanup();
+		const removed = removeInvalidNodeGroups(store);
+
+		expect(removed).toEqual([]);
+		expect(store.allGroups).toHaveLength(1);
+		expect(store.allGroups[0]).toMatchObject({ kind: 'loop' });
+		expect(showMessageSpy).not.toHaveBeenCalled();
 	});
 
 	it('removes a group whose members do not form a connected subgraph', () => {
