@@ -1,4 +1,4 @@
-import { LicenseState, Logger } from '@n8n/backend-common';
+import { LicenseState, Logger, ModuleRegistry } from '@n8n/backend-common';
 import { mockInstance } from '@n8n/backend-test-utils';
 import { GlobalConfig } from '@n8n/config';
 import type { User, WorkflowEntity, Project } from '@n8n/db';
@@ -53,6 +53,10 @@ mockInstance(CommunityPackagesService);
 mockInstance(WorkflowFailureNotificationEventRelay);
 
 const logger = mockInstance(Logger);
+mockInstance(ModuleRegistry, {
+	initModules: vi.fn().mockResolvedValue(undefined),
+	isActive: vi.fn().mockReturnValue(false),
+});
 const errorReporter = mockInstance(ErrorReporter);
 const dbConnection = mockInstance(DbConnection);
 dbConnection.init.mockResolvedValue(undefined);

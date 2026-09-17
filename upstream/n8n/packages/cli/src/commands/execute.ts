@@ -36,6 +36,9 @@ export class Execute extends BaseCommand<z.infer<typeof flagsSchema>> {
 
 	async init() {
 		await super.init();
+		// CLI workflow executions do not initialize backend modules by default, but
+		// Codex Coding Agent needs its runtime proxy in the execution context.
+		await this.moduleRegistry.initModules(this.instanceSettings.instanceType, ['codex-coding']);
 		await this.initLicense();
 		await this.initCommunityPackages();
 		await this.initBinaryDataService();
@@ -148,5 +151,12 @@ export class Execute extends BaseCommand<z.infer<typeof flagsSchema>> {
 		this.logger.error(error.message);
 		if (error instanceof ExecutionBaseError) this.logger.error(error.description!);
 		this.logger.error(error.stack!);
+	}
+
+	override async finally(error: Error | undefined) {
+		if (this.moduleRegistry.isActive('codex-coding')) {
+			await this.moduleRegistry.shutdownModule('codex-coding');
+		}
+		await super.finally(error);
 	}
 }

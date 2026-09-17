@@ -156,8 +156,9 @@ export class ModuleRegistry {
 	 *
 	 * `ModuleRegistry.loadModules` must have been called before.
 	 */
-	async initModules(instanceType: InstanceType) {
+	async initModules(instanceType: InstanceType, modules?: ModuleName[]) {
 		for (const [moduleName, moduleEntry] of this.moduleMetadata.getEntries()) {
+			if (modules && !modules.includes(moduleName as ModuleName)) continue;
 			const { licenseFlag, instanceTypes, class: ModuleClass } = moduleEntry;
 
 			if (licenseFlag !== undefined && !this.licenseState.isLicensed(licenseFlag)) {
