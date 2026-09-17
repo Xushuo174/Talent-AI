@@ -25,7 +25,7 @@
       "typeVersion": 3.1,
       "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', fixedScope: {entry: 'Agent Data', targetUsers: '对相关项目具有访问权限的已登录用户', readOnly: true}}) }}",
+        "text": "={{ JSON.stringify({ request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', entry: 'Agent Data', targetUsers: '对相关项目具有访问权限的已登录用户', readOnly: true }) }}",
         "options": {
           "systemMessage": "你是产品体验设计 Agent。请为 Talent-AI 设计一个小而完整、适合面试演示的 Agent Data 侧边栏入口和页面。页面用于展示当前 n8n 数据库中的预设 Agent 信息，但不能暴露 SQLite 原始访问能力。请明确导航行为、表格或卡片布局、实用字段、筛选方式、加载状态、空状态、错误状态以及可验证的验收标准。范围必须能够由一次编码任务完成并便于审查。只返回一个 JSON 对象，字段固定为：role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。不得声称尚未实现的代码已经存在。",
           "maxIterations": 3
