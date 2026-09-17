@@ -1,6 +1,6 @@
 import type { Logger } from '@n8n/backend-common';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { InstanceSettings } from 'n8n-core';
@@ -68,6 +68,30 @@ describe('CodexWorktreeService', () => {
 			initialBranch,
 		);
 		expect(execFileSync('git.exe', ['-C', repositoryPath, 'status', '--porcelain']).toString()).toBe('');
+	});
+
+	it.runIf(process.platform === 'win32')('checks out repository paths longer than MAX_PATH', async () => {
+		const longDirectory = path.join(
+			repositoryPath,
+			'packages',
+			'a'.repeat(90),
+			'b'.repeat(90),
+		);
+		const longFile = path.join(longDirectory, `${'c'.repeat(80)}.json`);
+		await mkdir(longDirectory, { recursive: true });
+		await writeFile(longFile, '{}\n');
+		execFileSync('git.exe', ['-c', 'core.longpaths=true', '-C', repositoryPath, 'add', '.']);
+		execFileSync('git.exe', ['-C', repositoryPath, 'commit', '-m', 'add long path']);
+
+		const workspace = await service.prepare({
+			repositoryId: 'test-repo',
+			workflowExecutionId: 'execution-long-path',
+			nodeId: 'node-long-path',
+		});
+
+		await expect(
+			access(path.join(workspace.worktreePath, path.relative(repositoryPath, longFile))),
+		).resolves.toBeUndefined();
 	});
 
 	it('rejects a dirty allowlisted repository', async () => {

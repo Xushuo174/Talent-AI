@@ -50,6 +50,13 @@ function isInside(parent: string, child: string): boolean {
 	return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+function gitCommand(args: string[], cwd = '.'): CodexCodingCommandConfig {
+	// n8n contains tracked paths that exceed the legacy Windows MAX_PATH limit.
+	// Keep this scoped to the host-managed Git process instead of changing the
+	// user's global Git configuration.
+	return { file: 'git.exe', args: ['-c', 'core.longpaths=true', ...args], cwd };
+}
+
 @Service()
 export class CodexWorktreeService {
 	constructor(
@@ -98,14 +105,14 @@ export class CodexWorktreeService {
 			throw new UserError(`Allowlisted repository does not exist: ${repository.label}`);
 		}
 		const gitDirectory = await this.runCommand(
-			{ file: 'git.exe', args: ['rev-parse', '--git-dir'], cwd: '.' },
+			gitCommand(['rev-parse', '--git-dir']),
 			repositoryPath,
 			30_000,
 		);
 		if (gitDirectory.exitCode !== 0) throw new UserError(`${repository.label} is not a Git repository`);
 
 		const status = await this.runCommand(
-			{ file: 'git.exe', args: ['status', '--porcelain', '--untracked-files=all'], cwd: '.' },
+			gitCommand(['status', '--porcelain', '--untracked-files=all']),
 			repositoryPath,
 			30_000,
 		);
@@ -117,7 +124,7 @@ export class CodexWorktreeService {
 		}
 
 		const head = await this.runCommand(
-			{ file: 'git.exe', args: ['rev-parse', '--verify', 'HEAD'], cwd: '.' },
+			gitCommand(['rev-parse', '--verify', 'HEAD']),
 			repositoryPath,
 			30_000,
 		);
@@ -134,11 +141,7 @@ export class CodexWorktreeService {
 		const worktreePath = path.join(root, sanitizePart(repository.id), suffix);
 		await mkdir(path.dirname(worktreePath), { recursive: true });
 		const create = await this.runCommand(
-			{
-				file: 'git.exe',
-				args: ['worktree', 'add', '-b', branchName, worktreePath, baseCommit],
-				cwd: '.',
-			},
+			gitCommand(['worktree', 'add', '-b', branchName, worktreePath, baseCommit]),
 			repositoryPath,
 			120_000,
 		);
@@ -185,22 +188,22 @@ export class CodexWorktreeService {
 	async collectDiff(worktreePath: string, runId: string, turnId: string) {
 		const [trackedNames, untrackedNames, stat, diff] = await Promise.all([
 			this.runCommand(
-				{ file: 'git.exe', args: ['diff', '--name-only', '-z', 'HEAD'], cwd: '.' },
+				gitCommand(['diff', '--name-only', '-z', 'HEAD']),
 				worktreePath,
 				30_000,
 			),
 			this.runCommand(
-				{ file: 'git.exe', args: ['ls-files', '--others', '--exclude-standard', '-z'], cwd: '.' },
+				gitCommand(['ls-files', '--others', '--exclude-standard', '-z']),
 				worktreePath,
 				30_000,
 			),
 			this.runCommand(
-				{ file: 'git.exe', args: ['diff', '--stat', 'HEAD'], cwd: '.' },
+				gitCommand(['diff', '--stat', 'HEAD']),
 				worktreePath,
 				30_000,
 			),
 			this.runCommand(
-				{ file: 'git.exe', args: ['diff', '--no-ext-diff', '--binary', 'HEAD'], cwd: '.' },
+				gitCommand(['diff', '--no-ext-diff', '--binary', 'HEAD']),
 				worktreePath,
 				60_000,
 			),
@@ -215,20 +218,12 @@ export class CodexWorktreeService {
 			}
 			const [newFileDiff, newFileStat] = await Promise.all([
 				this.runCommand(
-					{
-						file: 'git.exe',
-						args: ['diff', '--no-index', '--binary', '--', '/dev/null', relativePath],
-						cwd: '.',
-					},
+					gitCommand(['diff', '--no-index', '--binary', '--', '/dev/null', relativePath]),
 					worktreePath,
 					60_000,
 				),
 				this.runCommand(
-					{
-						file: 'git.exe',
-						args: ['diff', '--no-index', '--stat', '--', '/dev/null', relativePath],
-						cwd: '.',
-					},
+					gitCommand(['diff', '--no-index', '--stat', '--', '/dev/null', relativePath]),
 					worktreePath,
 					30_000,
 				),
