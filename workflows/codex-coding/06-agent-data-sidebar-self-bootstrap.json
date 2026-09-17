@@ -15,7 +15,10 @@
           "responseMode": "responseNodes"
         }
       },
-      "position": [-1260, 0],
+      "position": [
+        -1260,
+        0
+      ],
       "webhookId": "talent-ai-agent-data-self-bootstrap"
     },
     {
@@ -27,11 +30,14 @@
         "promptType": "define",
         "text": "={{ JSON.stringify({ request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', entry: 'Agent Data', targetUsers: '对相关项目具有访问权限的已登录用户', readOnly: true }) }}",
         "options": {
-          "systemMessage": "你是产品体验设计 Agent。请为 Talent-AI 设计一个小而完整、适合面试演示的 Agent Data 侧边栏入口和页面。页面用于展示当前 n8n 数据库中的预设 Agent 信息，但不能暴露 SQLite 原始访问能力。请明确导航行为、表格或卡片布局、实用字段、筛选方式、加载状态、空状态、错误状态以及可验证的验收标准。范围必须能够由一次编码任务完成并便于审查。只返回一个 JSON 对象，字段固定为：role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。不得声称尚未实现的代码已经存在。",
-          "maxIterations": 3
+          "systemMessage": "你是产品体验设计 Agent。只设计一次编码任务能完成的最小可演示版本，不扩展额外功能。只返回一个 JSON 对象，字段固定为 role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。数量上限：pageSections 最多 3 项、visibleFields 最多 6 项、filters 最多 2 项、acceptanceCriteria 最多 4 项、risks 最多 2 项。每项只写一句话，总输出不超过 500 个中文字符。页面只读，不得声称尚未实现的代码已经存在。",
+          "maxIterations": 2
         }
       },
-      "position": [-980, -200]
+      "position": [
+        -980,
+        -200
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000003",
@@ -42,11 +48,14 @@
         "promptType": "define",
         "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', verifiedSourceFacts: ['Agent 实体映射到 agents 表，并保存 projectId、schema、integrations、tools、skills、activeVersionId、revision、createdAt 和 updatedAt。', 'AgentsListController 已提供经过身份认证的 GET /agents/v2，只返回当前用户可访问的 Agent。', 'AgentsController 已提供项目范围的 GET /projects/:projectId/agents/v2 和 GET /:agentId/summary。', '前端 AgentsModule 已注册 Agent 路由和项目标签页。', '前端代码绝不能直接打开 SQLite 文件。']}) }}",
         "options": {
-          "systemMessage": "你是数据与安全架构 Agent。请基于已验证的源码事实，为只读 Agent Data 页面制定实现方案。优先复用现有的 AgentsService 和经过身份认证的 REST API；只有当前响应无法提供用户批准的字段时，才新增范围最小的 DTO 或只读接口。必须保留项目权限和用户权限检查，禁止浏览器执行原始 SQL，禁止暴露数据库路径或密钥，并设计基于 SQLite 的集成测试。只返回一个 JSON 对象，字段固定为：role、dataSource、existingComponentsToReuse、backendChanges、apiContract、permissions、sqliteNotes、tests、constraints、risks。明确区分已验证事实与计划新增的内容。",
-          "maxIterations": 3
+          "systemMessage": "你是数据与安全架构 Agent。基于输入中的已验证源码事实，为只读 Agent Data 页面给出最小改动方案。优先复用现有 AgentsService 和认证后的 REST API；仅在现有响应缺字段时提出最小 DTO 或只读接口。浏览器不得直接访问 SQLite，不得暴露数据库路径或密钥。只返回一个 JSON 对象，字段固定为 role、dataSource、existingComponentsToReuse、backendChanges、apiContract、permissions、sqliteNotes、tests、constraints、risks。数量上限：复用项最多 4 项、后端改动最多 2 项、测试最多 3 项、约束最多 3 项、风险最多 2 项。每项只写一句话，总输出不超过 600 个中文字符，并区分已验证事实与计划改动。",
+          "maxIterations": 2
         }
       },
-      "position": [-980, 200]
+      "position": [
+        -980,
+        200
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000004",
@@ -56,11 +65,15 @@
       "parameters": {
         "model": "deepseek-flash",
         "options": {
-          "temperature": 0
+          "temperature": 0,
+          "responseFormat": "json_object"
         }
       },
-      "position": [-850, 450],
-      "notes": "首次运行前请选择现有的 DeepSeek 凭据。这个模型只服务于循环开始前的三个规划 Agent。",
+      "position": [
+        -850,
+        450
+      ],
+      "notes": "首次运行前请选择现有的 DeepSeek 凭据。它服务于三个首次规划 Agent；用户要求修改时也用于精简重写方案。",
       "notesInFlow": true
     },
     {
@@ -71,7 +84,10 @@
       "parameters": {
         "numberInputs": 2
       },
-      "position": [-700, 0]
+      "position": [
+        -700,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000006",
@@ -80,9 +96,12 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const requestedFeature = String($('When chat message received').first().json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。');\nreturn [{ json: {\n  requestedFeature,\n  productDesign: $('Product Experience Agent').first().json.output,\n  architectureDesign: $('Data Security Architect Agent').first().json.output,\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
+        "jsCode": "function parseJson(value, label) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  try {\n    const parsed = JSON.parse(text);\n    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('不是对象');\n    return parsed;\n  } catch {\n    throw new Error(`${label} 必须返回有效 JSON 对象。`);\n  }\n}\nconst keep = (value) => typeof value === 'string' ? value.trim() : (value ?? null);\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(keep)\n  .filter((item) => item !== null && item !== '')\n  .slice(0, max);\nconst product = parseJson($('Product Experience Agent').first().json.output, 'Product Experience Agent');\nconst architecture = parseJson($('Data Security Architect Agent').first().json.output, 'Data Security Architect Agent');\nconst requestedFeature = String($('When chat message received').first().json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。').trim();\nreturn [{ json: {\n  requestedFeature,\n  productDesign: {\n    userExperience: keep(product.userExperience),\n    sidebarEntry: keep(product.sidebarEntry),\n    pageSections: list(product.pageSections, 3),\n    visibleFields: list(product.visibleFields, 6),\n    filters: list(product.filters, 2),\n    acceptanceCriteria: list(product.acceptanceCriteria, 4),\n    risks: list(product.risks, 2),\n  },\n  architectureDesign: {\n    dataSource: keep(architecture.dataSource),\n    existingComponentsToReuse: list(architecture.existingComponentsToReuse, 4),\n    backendChanges: list(architecture.backendChanges, 2),\n    apiContract: keep(architecture.apiContract),\n    permissions: keep(architecture.permissions),\n    sqliteNotes: keep(architecture.sqliteNotes),\n    tests: list(architecture.tests, 3),\n    constraints: list(architecture.constraints, 3),\n    risks: list(architecture.risks, 2),\n  },\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
       },
-      "position": [-470, 0]
+      "position": [
+        -470,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000007",
@@ -93,11 +112,14 @@
         "promptType": "define",
         "text": "={{ JSON.stringify($json) }}",
         "options": {
-          "systemMessage": "你是主规划 Agent。请把产品方案和数据架构方案整合为 Goal Loop 与 Codex Coding Agent 将要执行的精确契约。改动必须小、可审查，并以现有源码为依据。方案必须包含只读的 Agent Data 侧边栏入口和页面、身份认证、项目与用户权限范围、禁止浏览器直接访问 SQLite、在满足需求时复用现有 AgentsService/API、确定性测试，以及清晰的加载/空数据/错误状态。新增测试文件名必须包含小写字符串 agent-data-overview，以便固定 Verification Profile 可以选中这些测试。verificationProfile 必须严格等于 agent-data-sidebar-targeted。只返回一个有效 JSON 对象，结构必须是：{\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}。JSON 的键名保持英文，但字段内容使用中文。不要使用 Markdown 代码围栏。",
-          "maxIterations": 3
+          "systemMessage": "你是主规划 Agent。把产品方案和架构方案压缩为一个能由 Codex 在单个隔离 worktree 中完成的最小实现契约。只保留用户明确要求和安全边界，不加入搜索、分页、编辑、监控等额外功能。verificationProfile 必须严格等于 agent-data-sidebar-targeted；新增测试文件名必须包含小写 agent-data-overview。只返回有效 JSON：{\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}。goal 一句话；constraints 只写 3 至 4 条；acceptanceCriteria 只写 5 条；implementationTask 不超过 600 个中文字符；designSummary 每项一句话。键名和枚举使用英文，内容使用中文，不要 Markdown。",
+          "maxIterations": 2
         }
       },
-      "position": [-210, 0]
+      "position": [
+        -210,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000008",
@@ -106,14 +128,128 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "sendAndWait",
-        "message": "={{ '规划 Agent 已生成以下实现契约，目前尚未修改任何代码。\\n\\n' + $json.output + '\\n\\n如果保持原方案，请回复“批准”或 APPROVE。若要修改，请粘贴一个键名结构相同的完整 JSON；提交该 JSON 即表示确认修改后的方案。其他回复会在 Codex 运行前触发校验错误并停止。' }}",
+        "message": "={{ $json.planSummary + '\\n\\nCodex 尚未运行。请点击“批准方案”进入编码循环；点击“修改方案”后用一两句话说明要改什么。' }}",
+        "responseType": "approval",
+        "blockUserInput": true,
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "批准方案",
+            "buttonApprovalStyle": "primary",
+            "disapproveLabel": "修改方案",
+            "buttonDisapprovalStyle": "secondary"
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        310,
+        0
+      ],
+      "webhookId": "talent-ai-agent-data-plan-approval",
+      "notes": "按钮式人工确认关卡。完整内部 JSON 不发送到 Chat；只有明确点击“批准方案”后 Codex 才能运行。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000019",
+      "name": "Normalize Goal Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function parseJson(value) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  const parsed = JSON.parse(text);\n  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('规划 Agent 必须返回 JSON 对象。');\n  return parsed;\n}\nconst text = (value) => String(value ?? '').trim();\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(text).filter(Boolean).slice(0, max);\nconst raw = parseJson($json.output);\nconst plan = {\n  version: 1,\n  title: text(raw.title || 'Agent Data 侧边栏最小实现'),\n  goal: text(raw.goal),\n  constraints: list(raw.constraints, 4),\n  acceptanceCriteria: list(raw.acceptanceCriteria, 5),\n  implementationTask: text(raw.implementationTask),\n  verificationProfile: 'agent-data-sidebar-targeted',\n  reviewerInstructions: text(raw.reviewerInstructions),\n  designSummary: {\n    navigation: text(raw.designSummary?.navigation),\n    data: text(raw.designSummary?.data),\n    security: text(raw.designSummary?.security),\n    tests: text(raw.designSummary?.tests),\n  },\n};\nfor (const key of ['goal', 'implementationTask', 'reviewerInstructions']) {\n  if (!plan[key]) throw new Error(`规划方案缺少字段：${key}。`);\n}\nif (plan.constraints.length < 1) throw new Error('规划方案至少需要一条约束。');\nif (plan.acceptanceCriteria.length < 1) throw new Error('规划方案至少需要一条验收标准。');\nconst numbered = (items) => items.map((item, index) => `${index + 1}. ${item}`).join('\\n');\nconst planSummary = [\n  `方案：${plan.title}`,\n  `目标：${plan.goal}`,\n  `约束（${plan.constraints.length} 条）：\\n${numbered(plan.constraints)}`,\n  `验收标准（${plan.acceptanceCriteria.length} 条）：\\n${numbered(plan.acceptanceCriteria)}`,\n  `实现范围：${plan.designSummary.navigation || '侧边栏入口与页面'}；${plan.designSummary.data || '复用现有数据接口'}`,\n].join('\\n\\n');\nreturn [{ json: { plan, planSummary } }];"
+      },
+      "position": [
+        50,
+        0
+      ],
+      "notes": "对首次方案和修改后的方案执行相同的结构校验与硬性长度限制。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000020",
+      "name": "Plan Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "62000000-0000-4000-8000-000000000120",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        570,
+        0
+      ]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000021",
+      "name": "Describe Plan Changes",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "sendAndWait",
+        "message": "请用一两句话说明要修改什么，例如：只保留列表页；字段减少为名称、状态、工具数和更新时间。",
         "responseType": "freeTextChat",
         "options": {}
       },
-      "position": [50, 0],
-      "webhookId": "talent-ai-agent-data-plan-approval",
-      "notes": "这是人工确认关卡。只有用户明确批准方案，或者提交并确认一份完整的修改版 JSON 契约后，Codex 才能运行。",
+      "position": [
+        570,
+        300
+      ],
+      "webhookId": "talent-ai-agent-data-plan-changes",
+      "notes": "只收集自然语言修改意见，不要求用户编辑 JSON。",
       "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000022",
+      "name": "Build Plan Revision Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const requestedChanges = String($json.chatInput ?? '').trim();\nif (!requestedChanges) throw new Error('修改意见不能为空。Codex 尚未运行。');\nconst currentPlan = $('Normalize Goal Plan').last().json.plan;\nreturn [{ json: {\n  currentPlan,\n  requestedChanges,\n  limits: {\n    constraints: '最多 4 条',\n    acceptanceCriteria: '最多 5 条',\n    implementationTask: '最多 600 个中文字符',\n    scope: '只修改用户指出的内容，不增加新功能',\n  },\n} }];"
+      },
+      "position": [
+        310,
+        300
+      ]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000023",
+      "name": "Revise Goal Specification Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "你是方案修订 Agent。根据 requestedChanges 修改 currentPlan，只改用户明确指出的内容，不扩展范围。必须保留 verificationProfile=agent-data-sidebar-targeted 和测试文件名包含 agent-data-overview 的要求。只返回与 currentPlan 键名结构相同的有效 JSON。constraints 最多 4 条，acceptanceCriteria 最多 5 条，implementationTask 不超过 600 个中文字符，designSummary 每项一句话。内容使用中文，不要 Markdown。",
+          "maxIterations": 2
+        }
+      },
+      "position": [
+        50,
+        300
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000009",
@@ -122,9 +258,12 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function parseJson(value) {\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  return JSON.parse(text);\n}\nconst proposed = parseJson($('Goal Specification Agent').item.json.output);\nconst response = String($json.chatInput ?? '').trim();\nlet approvedSpecification;\nlet approvalMode;\nif (/^(APPROVE|批准)$/i.test(response)) {\n  approvedSpecification = proposed;\n  approvalMode = 'approved-as-proposed';\n} else {\n  try {\n    approvedSpecification = parseJson(response);\n    approvalMode = 'user-modified-and-approved';\n  } catch {\n    throw new Error('方案尚未获批准。请回复“批准”或 APPROVE，或者提交完整的修改版 JSON 契约。Codex 尚未运行。');\n  }\n}\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`已批准方案缺少字段：${key}。`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('已批准方案必须包含 constraints。');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('已批准方案必须包含 acceptanceCriteria。');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile 必须保持为 agent-data-sidebar-targeted，因为验证命令由服务端控制。');\nreturn [{ json: { approvedSpecification, approval: { mode: approvalMode, confirmedAt: new Date().toISOString() } } }];"
+        "jsCode": "const approvedSpecification = $('Normalize Goal Plan').last().json.plan;\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`已批准方案缺少字段：${key}。`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('已批准方案必须包含 constraints。');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('已批准方案必须包含 acceptanceCriteria。');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile 必须保持为 agent-data-sidebar-targeted。');\nlet mode = 'approved-as-proposed';\ntry {\n  if ($('Revise Goal Specification Agent').last().json.output) mode = 'approved-after-revision';\n} catch {}\nreturn [{ json: { approvedSpecification, approval: { mode, confirmedAt: new Date().toISOString() } } }];"
       },
-      "position": [320, 0]
+      "position": [
+        830,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000010",
@@ -141,7 +280,10 @@
         "historyWindow": 3,
         "additionalContextTemplate": "={{ JSON.stringify({approvedDesign:$json.approvedSpecification.designSummary, approval:$json.approval, reviewerInstructions:$json.approvedSpecification.reviewerInstructions}) }}"
       },
-      "position": [610, 0]
+      "position": [
+        1110,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000011",
@@ -163,7 +305,10 @@
         "reasoningEffort": "high",
         "timeoutMinutes": 20
       },
-      "position": [900, 0],
+      "position": [
+        1400,
+        0
+      ],
       "notes": "后端会自动追加经过验证的 LoopContext，因此这里的 Task 不再重复拼接上下文。",
       "notesInFlow": true
     },
@@ -180,7 +325,10 @@
           "maxIterations": 3
         }
       },
-      "position": [1190, 0],
+      "position": [
+        1690,
+        0
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -194,7 +342,10 @@
           "temperature": 0
         }
       },
-      "position": [1180, 260],
+      "position": [
+        1680,
+        260
+      ],
       "notes": "首次运行前请选择现有的 DeepSeek 凭据。",
       "notesInFlow": true
     },
@@ -207,7 +358,10 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const codex = $('Codex Coding Agent').item.json;\nlet reviewer;\ntry {\n  const text = String($json.output ?? '').replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  reviewer = JSON.parse(text);\n} catch {\n  reviewer = { score: 0, verdict: 'blocked', summary: 'Reviewer did not return valid JSON.', issues: [{ id: 'review-json', severity: 'error', message: 'Reviewer output is unavailable or invalid.' }] };\n}\nreturn [{ json: { artifact: codex.artifact, checks: codex.checks, reviewer, extraContext: { codexRunId: codex.codexCoding.runId, threadId: codex.codexCoding.threadId, turnId: codex.codexCoding.turnId, summary: codex.codexCoding.summary, approvedSpecification: $('Finalize Approved Goal Plan').item.json.approvedSpecification } } }];"
       },
-      "position": [1460, 0]
+      "position": [
+        1960,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000015",
@@ -220,7 +374,10 @@
         "reviewerField": "reviewer",
         "extraContextField": "extraContext"
       },
-      "position": [1720, 0]
+      "position": [
+        2220,
+        0
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000016",
@@ -232,7 +389,10 @@
         "message": "={{ '自举开发已经完成。\\n\\n分支：' + String($json.artifact?.branchName ?? $json.bestResult?.artifact?.branchName ?? '请查看执行输出') + '\\n停止原因：' + String($json.stopReason ?? 'passed') + '\\n\\n合并前请检查本次执行中的分支、diff、修改文件和确定性验证结果。' }}",
         "options": {}
       },
-      "position": [900, -270]
+      "position": [
+        1400,
+        -270
+      ]
     },
     {
       "id": "62000000-0000-4000-8000-000000000017",
@@ -244,65 +404,273 @@
         "message": "={{ '自举开发已经停止，尚未满足全部验收标准。\\n\\n原因：' + String($json.stopReason ?? $json.loopState?.status ?? 'unknown') + '\\n\\n隔离分支和 worktree 已保留。请在执行输出中检查历史最佳产物、剩余问题和确定性验证结果。' }}",
         "options": {}
       },
-      "position": [900, 270]
+      "position": [
+        1400,
+        270
+      ]
     }
   ],
   "connections": {
     "When chat message received": {
-      "main": [[
-        { "node": "Product Experience Agent", "type": "main", "index": 0 },
-        { "node": "Data Security Architect Agent", "type": "main", "index": 0 }
-      ]]
+      "main": [
+        [
+          {
+            "node": "Product Experience Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Data Security Architect Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Planning Model": {
-      "ai_languageModel": [[
-        { "node": "Product Experience Agent", "type": "ai_languageModel", "index": 0 },
-        { "node": "Data Security Architect Agent", "type": "ai_languageModel", "index": 0 },
-        { "node": "Goal Specification Agent", "type": "ai_languageModel", "index": 0 }
-      ]]
+      "ai_languageModel": [
+        [
+          {
+            "node": "Product Experience Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Data Security Architect Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Goal Specification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Revise Goal Specification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Product Experience Agent": {
-      "main": [[{ "node": "Wait for Both Designs", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Wait for Both Designs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Data Security Architect Agent": {
-      "main": [[{ "node": "Wait for Both Designs", "type": "main", "index": 1 }]]
+      "main": [
+        [
+          {
+            "node": "Wait for Both Designs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Wait for Both Designs": {
-      "main": [[{ "node": "Collect Design Evidence", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Collect Design Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Collect Design Evidence": {
-      "main": [[{ "node": "Goal Specification Agent", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Goal Specification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Goal Specification Agent": {
-      "main": [[{ "node": "Review and Approve Goal Plan", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Normalize Goal Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Review and Approve Goal Plan": {
-      "main": [[{ "node": "Finalize Approved Goal Plan", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Plan Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Finalize Approved Goal Plan": {
-      "main": [[{ "node": "Goal Loop", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Goal Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Goal Loop": {
       "main": [
-        [{ "node": "Codex Coding Agent", "type": "main", "index": 0 }],
-        [{ "node": "Completed Result", "type": "main", "index": 0 }],
-        [{ "node": "Stopped Result", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Codex Coding Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Completed Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stopped Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Codex Coding Agent": {
-      "main": [[{ "node": "Code Reviewer Agent", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Code Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Review Model": {
-      "ai_languageModel": [[{ "node": "Code Reviewer Agent", "type": "ai_languageModel", "index": 0 }]]
+      "ai_languageModel": [
+        [
+          {
+            "node": "Code Reviewer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Code Reviewer Agent": {
-      "main": [[{ "node": "Merge Review Evidence", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Merge Review Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Merge Review Evidence": {
-      "main": [[{ "node": "Loop Evaluation", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Loop Evaluation": {
-      "main": [[{ "node": "Goal Loop", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Goal Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Goal Plan": {
+      "main": [
+        [
+          {
+            "node": "Review and Approve Goal Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Approved?": {
+      "main": [
+        [
+          {
+            "node": "Finalize Approved Goal Plan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describe Plan Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describe Plan Changes": {
+      "main": [
+        [
+          {
+            "node": "Build Plan Revision Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Plan Revision Input": {
+      "main": [
+        [
+          {
+            "node": "Revise Goal Specification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revise Goal Specification Agent": {
+      "main": [
+        [
+          {
+            "node": "Normalize Goal Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodeGroups": [
