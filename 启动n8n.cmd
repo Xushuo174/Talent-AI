@@ -7,7 +7,7 @@ set "STOP_MARKER=%~dp0.n8n-stop-requested"
 set "TALENT_AI_ROOT=%~dp0"
 set "TALENT_AI_ROOT=%TALENT_AI_ROOT:\=/%"
 set "PNPM_JS=%APPDATA:\=/%/npm/node_modules/pnpm/bin/pnpm.mjs"
-set "N8N_CODEX_CODING_REPOSITORIES=[{"id":"talent-ai","label":"Talent-AI","path":"%TALENT_AI_ROOT%","prepareSteps":[{"id":"offline-install","file":"node.exe","args":["%PNPM_JS%","install","--offline","--frozen-lockfile"],"cwd":"upstream/n8n"}],"verificationProfiles":{"codex-node-targeted":[{"id":"codex-node-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","test","CodexCodingAgent"],"cwd":"upstream/n8n"},{"id":"nodes-base-typecheck","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","typecheck"],"cwd":"upstream/n8n"}]}}]"
+set "N8N_CODEX_CODING_REPOSITORIES=[{"id":"talent-ai","label":"Talent-AI","path":"%TALENT_AI_ROOT%","prepareSteps":[{"id":"offline-install","file":"node.exe","args":["%PNPM_JS%","install","--offline","--frozen-lockfile","--ignore-scripts"],"cwd":"upstream/n8n"}],"verificationProfiles":{"codex-node-targeted":[{"id":"codex-node-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","test","CodexCodingAgent"],"cwd":"upstream/n8n"},{"id":"nodes-base-typecheck","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","typecheck"],"cwd":"upstream/n8n"}]}}]"
 del /q "%STOP_MARKER%" >nul 2>&1
 
 if not exist "%N8N_DIR%\package.json" (
