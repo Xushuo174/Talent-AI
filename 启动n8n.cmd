@@ -7,6 +7,8 @@ set "STOP_MARKER=%~dp0.n8n-stop-requested"
 set "TALENT_AI_ROOT=%~dp0"
 set "TALENT_AI_ROOT=%TALENT_AI_ROOT:\=/%"
 set "PNPM_JS=%APPDATA:\=/%/npm/node_modules/pnpm/bin/pnpm.mjs"
+set "CODEX_EXE=%APPDATA%\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\codex\codex.exe"
+set "N8N_CODEX_CODING_EXECUTABLE=%CODEX_EXE%"
 set "N8N_CODEX_CODING_REPOSITORIES=[{"id":"talent-ai","label":"Talent-AI","path":"%TALENT_AI_ROOT%","prepareSteps":[{"id":"offline-install","file":"node.exe","args":["%PNPM_JS%","install","--offline","--frozen-lockfile","--ignore-scripts"],"cwd":"upstream/n8n"}],"verificationProfiles":{"codex-node-targeted":[{"id":"codex-node-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","test","CodexCodingAgent"],"cwd":"upstream/n8n"},{"id":"nodes-base-typecheck","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-nodes-base","typecheck"],"cwd":"upstream/n8n"}],"agent-data-sidebar-targeted":[{"id":"agent-data-cli-unit-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n","test:win","agents-list.controller","agent-data-overview"],"cwd":"upstream/n8n"},{"id":"agent-data-cli-sqlite-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n","test:sqlite:win","agent-data-overview"],"cwd":"upstream/n8n"},{"id":"cli-typecheck","file":"node.exe","args":["%PNPM_JS%","--filter","n8n","typecheck"],"cwd":"upstream/n8n"},{"id":"agent-data-editor-tests","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-editor-ui","test","agent-data-overview","module.descriptor"],"cwd":"upstream/n8n"},{"id":"editor-ui-typecheck","file":"node.exe","args":["%PNPM_JS%","--filter","n8n-editor-ui","typecheck"],"cwd":"upstream/n8n"}]}}]"
 del /q "%STOP_MARKER%" >nul 2>&1
 
@@ -20,6 +22,14 @@ if not exist "%N8N_DIR%\package.json" (
 where node.exe >nul 2>&1
 if errorlevel 1 (
 	echo [错误] 找不到 node.exe，请先安装或配置 Node.js 24.x。
+	pause
+	exit /b 1
+)
+
+if not exist "%CODEX_EXE%" (
+	echo [错误] 找不到 Codex CLI 可执行文件：
+	echo %CODEX_EXE%
+	echo 请先运行 npm install -g @openai/codex，或更新启动脚本中的 CODEX_EXE。
 	pause
 	exit /b 1
 )
