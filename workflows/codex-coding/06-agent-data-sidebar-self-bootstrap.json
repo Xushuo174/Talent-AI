@@ -1,0 +1,336 @@
+{
+  "name": "06-Agent Data Sidebar Self-Bootstrap",
+  "nodes": [
+    {
+      "id": "62000000-0000-4000-8000-000000000001",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "parameters": {
+        "public": false,
+        "mode": "hostedChat",
+        "authentication": "none",
+        "initialMessages": "Describe any extra requirements for the Agent Data sidebar self-bootstrap demo, or send the default request as-is.",
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "position": [-1260, 0],
+      "webhookId": "talent-ai-agent-data-self-bootstrap"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000002",
+      "name": "Product Experience Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({request: $json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.', fixedScope: {entry: 'Agent Data', targetUsers: 'authenticated users with access to the relevant projects', readOnly: true}}) }}",
+        "options": {
+          "systemMessage": "You are the Product Experience Agent. Design a small, interview-ready user experience for a new Talent-AI sidebar entry named Agent Data. It must present preset-agent information from the current n8n database without exposing raw SQLite access. Define the navigation behavior, table or cards, useful fields, filters, loading/empty/error states, and measurable acceptance criteria. Keep the scope reviewable in one coding task. Return one JSON object only with keys: role, userExperience, sidebarEntry, pageSections, visibleFields, filters, acceptanceCriteria, risks. Do not claim that code already exists.",
+          "maxIterations": 3
+        }
+      },
+      "position": [-980, -200]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000003",
+      "name": "Data Security Architect Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({request: $json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.', verifiedSourceFacts: ['Agent entity is mapped to the agents table and stores projectId, schema, integrations, tools, skills, activeVersionId, revision, createdAt, and updatedAt.', 'AgentsListController already exposes authenticated GET /agents/v2 for agents visible to the current user.', 'AgentsController exposes project-scoped GET /projects/:projectId/agents/v2 and GET /:agentId/summary.', 'The frontend AgentsModule already registers agent routes and project tabs.', 'Frontend code must never open the SQLite file directly.']}) }}",
+        "options": {
+          "systemMessage": "You are the Data and Security Architect Agent. Produce a source-aware implementation design for the requested read-only Agent Data view. Prefer existing authenticated AgentsService and REST APIs. Add a narrowly scoped DTO or endpoint only when the current response cannot provide the approved fields. Preserve project and user authorization, avoid raw SQL in the browser, never expose database paths or secrets, and describe SQLite-backed integration tests. Return one JSON object only with keys: role, dataSource, existingComponentsToReuse, backendChanges, apiContract, permissions, sqliteNotes, tests, constraints, risks. Separate verified facts from proposed changes.",
+          "maxIterations": 3
+        }
+      },
+      "position": [-980, 200]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000004",
+      "name": "Planning Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "parameters": {
+        "model": "deepseek-flash",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "position": [-850, 450],
+      "notes": "Select the existing DeepSeek credential before the first run. This model serves only the three pre-loop planning agents.",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000005",
+      "name": "Wait for Both Designs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "parameters": {
+        "numberInputs": 2
+      },
+      "position": [-700, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000006",
+      "name": "Collect Design Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const requestedFeature = String($('When chat message received').first().json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.');\nreturn [{ json: {\n  requestedFeature,\n  productDesign: $('Product Experience Agent').first().json.output,\n  architectureDesign: $('Data Security Architect Agent').first().json.output,\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
+      },
+      "position": [-470, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000007",
+      "name": "Goal Specification Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are the Lead Planning Agent. Reconcile the product and architecture proposals into the exact contract that Goal Loop and Codex Coding Agent will execute. Keep the change small and source-driven. Require a read-only Agent Data sidebar entry and page, authenticated access, project/user scoping, no browser access to the SQLite file, reuse of existing AgentsService/API when sufficient, deterministic tests, and visible loading/empty/error states. Require new tests to include the lowercase phrase agent-data-overview in their filenames so the fixed verification profile can select them. The verificationProfile must be exactly agent-data-sidebar-targeted. Return one valid JSON object only with this shape: {\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}. Do not use Markdown fences.",
+          "maxIterations": 3
+        }
+      },
+      "position": [-210, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000008",
+      "name": "Review and Approve Goal Plan",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "sendAndWait",
+        "message": "={{ 'The planning agents generated the following implementation contract. Nothing has been changed yet.\\n\\n' + $json.output + '\\n\\nReply APPROVE to use it unchanged. To modify it, paste a complete JSON object with the same keys; submitting that JSON confirms the modified version. Any other response will stop with a validation error before Codex runs.' }}",
+        "responseType": "freeTextChat",
+        "options": {}
+      },
+      "position": [50, 0],
+      "webhookId": "talent-ai-agent-data-plan-approval",
+      "notes": "This is the human gate. Codex cannot run until the user explicitly approves the generated plan or submits a complete modified JSON contract.",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000009",
+      "name": "Finalize Approved Goal Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function parseJson(value) {\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  return JSON.parse(text);\n}\nconst proposed = parseJson($('Goal Specification Agent').item.json.output);\nconst response = String($json.chatInput ?? '').trim();\nlet approvedSpecification;\nlet approvalMode;\nif (/^APPROVE$/i.test(response)) {\n  approvedSpecification = proposed;\n  approvalMode = 'approved-as-proposed';\n} else {\n  try {\n    approvedSpecification = parseJson(response);\n    approvalMode = 'user-modified-and-approved';\n  } catch {\n    throw new Error('Plan was not approved. Reply APPROVE or submit a complete modified JSON contract. Codex has not run.');\n  }\n}\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`Approved plan is missing ${key}.`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('Approved plan requires constraints.');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('Approved plan requires acceptanceCriteria.');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile must remain agent-data-sidebar-targeted because workflow commands are server-controlled.');\nreturn [{ json: { approvedSpecification, approval: { mode: approvalMode, confirmedAt: new Date().toISOString() } } }];"
+      },
+      "position": [320, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000010",
+      "name": "Goal Loop",
+      "type": "n8n-nodes-base.goalLoop",
+      "typeVersion": 1,
+      "parameters": {
+        "goal": "={{ $json.approvedSpecification.goal }}",
+        "constraints": "={{ $json.approvedSpecification.constraints.join('\\n') }}",
+        "acceptanceCriteria": "={{ $json.approvedSpecification.acceptanceCriteria.join('\\n') }}",
+        "maxRounds": 3,
+        "reviewerThreshold": 85,
+        "stagnationRounds": 2,
+        "historyWindow": 3,
+        "additionalContextTemplate": "={{ JSON.stringify({approvedDesign:$json.approvedSpecification.designSummary, approval:$json.approval, reviewerInstructions:$json.approvedSpecification.reviewerInstructions}) }}"
+      },
+      "position": [610, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000011",
+      "name": "Codex Coding Agent",
+      "type": "n8n-nodes-base.codexCodingAgent",
+      "typeVersion": 1,
+      "parameters": {
+        "repositoryId": {
+          "mode": "list",
+          "value": "talent-ai"
+        },
+        "task": "={{ $('Finalize Approved Goal Plan').item.json.approvedSpecification.implementationTask }}",
+        "goal": "={{ $json.loopContext.goal }}",
+        "verificationProfile": {
+          "mode": "list",
+          "value": "agent-data-sidebar-targeted"
+        },
+        "model": "",
+        "reasoningEffort": "high",
+        "timeoutMinutes": 20
+      },
+      "position": [900, 0],
+      "notes": "The backend appends the verified LoopContext automatically. This Task intentionally does not duplicate it.",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000012",
+      "name": "Code Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({approvedSpecification:$('Finalize Approved Goal Plan').item.json.approvedSpecification, loopContext:$('Goal Loop').item.json.loopContext, codexSummary:$json.codexCoding.summary, changedFiles:$json.codexCoding.changedFiles, diff:$json.codexCoding.diffPreview, deterministicChecks:$json.codexCoding.checks}) }}",
+        "options": {
+          "systemMessage": "You are a strict senior reviewer for the Talent-AI self-bootstrap demo. Check the supplied diff evidence against the user-approved goal, constraints, and acceptance criteria. Pay special attention to authenticated project/user scoping, avoiding direct browser access to SQLite, reuse of existing agent APIs, backward compatibility, sidebar routing, useful Agent fields, loading/empty/error states, and meaningful tests. Deterministic checks are authoritative: never mark pass when a required check failed. Return one JSON object only: {\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}. verdict must be pass, revise, or blocked. Each issue must contain id, severity (error or warning), message, and optional suggestion.",
+          "maxIterations": 3
+        }
+      },
+      "position": [1190, 0],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000013",
+      "name": "Review Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "parameters": {
+        "model": "deepseek-flash",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "position": [1180, 260],
+      "notes": "Select the existing DeepSeek credential before the first run.",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000014",
+      "name": "Merge Review Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const codex = $('Codex Coding Agent').item.json;\nlet reviewer;\ntry {\n  const text = String($json.output ?? '').replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  reviewer = JSON.parse(text);\n} catch {\n  reviewer = { score: 0, verdict: 'blocked', summary: 'Reviewer did not return valid JSON.', issues: [{ id: 'review-json', severity: 'error', message: 'Reviewer output is unavailable or invalid.' }] };\n}\nreturn [{ json: { artifact: codex.artifact, checks: codex.checks, reviewer, extraContext: { codexRunId: codex.codexCoding.runId, threadId: codex.codexCoding.threadId, turnId: codex.codexCoding.turnId, summary: codex.codexCoding.summary, approvedSpecification: $('Finalize Approved Goal Plan').item.json.approvedSpecification } } }];"
+      },
+      "position": [1460, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000015",
+      "name": "Loop Evaluation",
+      "type": "n8n-nodes-base.loopEvaluation",
+      "typeVersion": 1,
+      "parameters": {
+        "artifactField": "artifact",
+        "checksField": "checks",
+        "reviewerField": "reviewer",
+        "extraContextField": "extraContext"
+      },
+      "position": [1720, 0]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000016",
+      "name": "Completed Result",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "send",
+        "message": "={{ 'Self-bootstrap completed.\\n\\nBranch: ' + String($json.artifact?.branchName ?? $json.bestResult?.artifact?.branchName ?? 'See execution output') + '\\nStop reason: ' + String($json.stopReason ?? 'passed') + '\\n\\nReview the branch, diff, changed files, and deterministic checks in this execution before merging.' }}",
+        "options": {}
+      },
+      "position": [900, -270]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000017",
+      "name": "Stopped Result",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "send",
+        "message": "={{ 'Self-bootstrap stopped without meeting every acceptance criterion.\\n\\nReason: ' + String($json.stopReason ?? $json.loopState?.status ?? 'unknown') + '\\n\\nThe isolated branch and worktree are retained. Inspect the best artifact, remaining issues, and deterministic checks in the execution output.' }}",
+        "options": {}
+      },
+      "position": [900, 270]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [[
+        { "node": "Product Experience Agent", "type": "main", "index": 0 },
+        { "node": "Data Security Architect Agent", "type": "main", "index": 0 }
+      ]]
+    },
+    "Planning Model": {
+      "ai_languageModel": [[
+        { "node": "Product Experience Agent", "type": "ai_languageModel", "index": 0 },
+        { "node": "Data Security Architect Agent", "type": "ai_languageModel", "index": 0 },
+        { "node": "Goal Specification Agent", "type": "ai_languageModel", "index": 0 }
+      ]]
+    },
+    "Product Experience Agent": {
+      "main": [[{ "node": "Wait for Both Designs", "type": "main", "index": 0 }]]
+    },
+    "Data Security Architect Agent": {
+      "main": [[{ "node": "Wait for Both Designs", "type": "main", "index": 1 }]]
+    },
+    "Wait for Both Designs": {
+      "main": [[{ "node": "Collect Design Evidence", "type": "main", "index": 0 }]]
+    },
+    "Collect Design Evidence": {
+      "main": [[{ "node": "Goal Specification Agent", "type": "main", "index": 0 }]]
+    },
+    "Goal Specification Agent": {
+      "main": [[{ "node": "Review and Approve Goal Plan", "type": "main", "index": 0 }]]
+    },
+    "Review and Approve Goal Plan": {
+      "main": [[{ "node": "Finalize Approved Goal Plan", "type": "main", "index": 0 }]]
+    },
+    "Finalize Approved Goal Plan": {
+      "main": [[{ "node": "Goal Loop", "type": "main", "index": 0 }]]
+    },
+    "Goal Loop": {
+      "main": [
+        [{ "node": "Codex Coding Agent", "type": "main", "index": 0 }],
+        [{ "node": "Completed Result", "type": "main", "index": 0 }],
+        [{ "node": "Stopped Result", "type": "main", "index": 0 }]
+      ]
+    },
+    "Codex Coding Agent": {
+      "main": [[{ "node": "Code Reviewer Agent", "type": "main", "index": 0 }]]
+    },
+    "Review Model": {
+      "ai_languageModel": [[{ "node": "Code Reviewer Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Code Reviewer Agent": {
+      "main": [[{ "node": "Merge Review Evidence", "type": "main", "index": 0 }]]
+    },
+    "Merge Review Evidence": {
+      "main": [[{ "node": "Loop Evaluation", "type": "main", "index": 0 }]]
+    },
+    "Loop Evaluation": {
+      "main": [[{ "node": "Goal Loop", "type": "main", "index": 0 }]]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "62000000-0000-4000-8000-000000000018",
+      "name": "Approved Agent Data Coding Loop",
+      "description": "Only the user-approved specification enters this region. Loop rounds reuse one isolated worktree and Codex thread.",
+      "nodeIds": [
+        "62000000-0000-4000-8000-000000000010",
+        "62000000-0000-4000-8000-000000000011",
+        "62000000-0000-4000-8000-000000000012",
+        "62000000-0000-4000-8000-000000000013",
+        "62000000-0000-4000-8000-000000000014",
+        "62000000-0000-4000-8000-000000000015"
+      ],
+      "kind": "loop",
+      "loop": {
+        "version": 1,
+        "controllerNodeId": "62000000-0000-4000-8000-000000000010",
+        "evaluatorNodeId": "62000000-0000-4000-8000-000000000015"
+      }
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
