@@ -14,7 +14,7 @@ Flow:
 2. Product Experience Agent and Data Security Architect Agent run as parallel planning branches.
 3. Goal Specification Agent serially reconciles both outputs into the exact Goal Loop contract.
 4. `Review and Approve Goal Plan` pauses before any code is changed.
-5. Reply `APPROVE` to accept the plan, or paste a complete JSON object with the same keys to modify and approve it.
+5. 回复 `批准` 或 `APPROVE` 接受原方案；也可以粘贴键名结构相同的完整 JSON，在修改的同时确认方案。
 6. Only the approved contract enters Goal Loop and Codex Coding Agent.
 7. The host runs `agent-data-sidebar-targeted`; Code Reviewer Agent then performs semantic review.
 8. Loop Evaluation decides pass, retry, blocked, stagnated, or max rounds.

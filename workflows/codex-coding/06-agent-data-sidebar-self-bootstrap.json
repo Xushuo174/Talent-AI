@@ -10,7 +10,7 @@
         "public": false,
         "mode": "hostedChat",
         "authentication": "none",
-        "initialMessages": "Describe any extra requirements for the Agent Data sidebar self-bootstrap demo, or send the default request as-is.",
+        "initialMessages": "请补充 Agent Data 侧边栏自举 Demo 的额外要求；如果没有额外要求，可以直接发送默认需求。",
         "options": {
           "responseMode": "responseNodes"
         }
@@ -25,9 +25,9 @@
       "typeVersion": 3.1,
       "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify({request: $json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.', fixedScope: {entry: 'Agent Data', targetUsers: 'authenticated users with access to the relevant projects', readOnly: true}}) }}",
+        "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', fixedScope: {entry: 'Agent Data', targetUsers: '对相关项目具有访问权限的已登录用户', readOnly: true}}) }}",
         "options": {
-          "systemMessage": "You are the Product Experience Agent. Design a small, interview-ready user experience for a new Talent-AI sidebar entry named Agent Data. It must present preset-agent information from the current n8n database without exposing raw SQLite access. Define the navigation behavior, table or cards, useful fields, filters, loading/empty/error states, and measurable acceptance criteria. Keep the scope reviewable in one coding task. Return one JSON object only with keys: role, userExperience, sidebarEntry, pageSections, visibleFields, filters, acceptanceCriteria, risks. Do not claim that code already exists.",
+          "systemMessage": "你是产品体验设计 Agent。请为 Talent-AI 设计一个小而完整、适合面试演示的 Agent Data 侧边栏入口和页面。页面用于展示当前 n8n 数据库中的预设 Agent 信息，但不能暴露 SQLite 原始访问能力。请明确导航行为、表格或卡片布局、实用字段、筛选方式、加载状态、空状态、错误状态以及可验证的验收标准。范围必须能够由一次编码任务完成并便于审查。只返回一个 JSON 对象，字段固定为：role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。不得声称尚未实现的代码已经存在。",
           "maxIterations": 3
         }
       },
@@ -40,9 +40,9 @@
       "typeVersion": 3.1,
       "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify({request: $json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.', verifiedSourceFacts: ['Agent entity is mapped to the agents table and stores projectId, schema, integrations, tools, skills, activeVersionId, revision, createdAt, and updatedAt.', 'AgentsListController already exposes authenticated GET /agents/v2 for agents visible to the current user.', 'AgentsController exposes project-scoped GET /projects/:projectId/agents/v2 and GET /:agentId/summary.', 'The frontend AgentsModule already registers agent routes and project tabs.', 'Frontend code must never open the SQLite file directly.']}) }}",
+        "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', verifiedSourceFacts: ['Agent 实体映射到 agents 表，并保存 projectId、schema、integrations、tools、skills、activeVersionId、revision、createdAt 和 updatedAt。', 'AgentsListController 已提供经过身份认证的 GET /agents/v2，只返回当前用户可访问的 Agent。', 'AgentsController 已提供项目范围的 GET /projects/:projectId/agents/v2 和 GET /:agentId/summary。', '前端 AgentsModule 已注册 Agent 路由和项目标签页。', '前端代码绝不能直接打开 SQLite 文件。']}) }}",
         "options": {
-          "systemMessage": "You are the Data and Security Architect Agent. Produce a source-aware implementation design for the requested read-only Agent Data view. Prefer existing authenticated AgentsService and REST APIs. Add a narrowly scoped DTO or endpoint only when the current response cannot provide the approved fields. Preserve project and user authorization, avoid raw SQL in the browser, never expose database paths or secrets, and describe SQLite-backed integration tests. Return one JSON object only with keys: role, dataSource, existingComponentsToReuse, backendChanges, apiContract, permissions, sqliteNotes, tests, constraints, risks. Separate verified facts from proposed changes.",
+          "systemMessage": "你是数据与安全架构 Agent。请基于已验证的源码事实，为只读 Agent Data 页面制定实现方案。优先复用现有的 AgentsService 和经过身份认证的 REST API；只有当前响应无法提供用户批准的字段时，才新增范围最小的 DTO 或只读接口。必须保留项目权限和用户权限检查，禁止浏览器执行原始 SQL，禁止暴露数据库路径或密钥，并设计基于 SQLite 的集成测试。只返回一个 JSON 对象，字段固定为：role、dataSource、existingComponentsToReuse、backendChanges、apiContract、permissions、sqliteNotes、tests、constraints、risks。明确区分已验证事实与计划新增的内容。",
           "maxIterations": 3
         }
       },
@@ -60,7 +60,7 @@
         }
       },
       "position": [-850, 450],
-      "notes": "Select the existing DeepSeek credential before the first run. This model serves only the three pre-loop planning agents.",
+      "notes": "首次运行前请选择现有的 DeepSeek 凭据。这个模型只服务于循环开始前的三个规划 Agent。",
       "notesInFlow": true
     },
     {
@@ -80,7 +80,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const requestedFeature = String($('When chat message received').first().json.chatInput || 'Add a sidebar entry that visualizes preset-agent information stored in the project SQLite database.');\nreturn [{ json: {\n  requestedFeature,\n  productDesign: $('Product Experience Agent').first().json.output,\n  architectureDesign: $('Data Security Architect Agent').first().json.output,\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
+        "jsCode": "const requestedFeature = String($('When chat message received').first().json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。');\nreturn [{ json: {\n  requestedFeature,\n  productDesign: $('Product Experience Agent').first().json.output,\n  architectureDesign: $('Data Security Architect Agent').first().json.output,\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
       },
       "position": [-470, 0]
     },
@@ -93,7 +93,7 @@
         "promptType": "define",
         "text": "={{ JSON.stringify($json) }}",
         "options": {
-          "systemMessage": "You are the Lead Planning Agent. Reconcile the product and architecture proposals into the exact contract that Goal Loop and Codex Coding Agent will execute. Keep the change small and source-driven. Require a read-only Agent Data sidebar entry and page, authenticated access, project/user scoping, no browser access to the SQLite file, reuse of existing AgentsService/API when sufficient, deterministic tests, and visible loading/empty/error states. Require new tests to include the lowercase phrase agent-data-overview in their filenames so the fixed verification profile can select them. The verificationProfile must be exactly agent-data-sidebar-targeted. Return one valid JSON object only with this shape: {\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}. Do not use Markdown fences.",
+          "systemMessage": "你是主规划 Agent。请把产品方案和数据架构方案整合为 Goal Loop 与 Codex Coding Agent 将要执行的精确契约。改动必须小、可审查，并以现有源码为依据。方案必须包含只读的 Agent Data 侧边栏入口和页面、身份认证、项目与用户权限范围、禁止浏览器直接访问 SQLite、在满足需求时复用现有 AgentsService/API、确定性测试，以及清晰的加载/空数据/错误状态。新增测试文件名必须包含小写字符串 agent-data-overview，以便固定 Verification Profile 可以选中这些测试。verificationProfile 必须严格等于 agent-data-sidebar-targeted。只返回一个有效 JSON 对象，结构必须是：{\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}。JSON 的键名保持英文，但字段内容使用中文。不要使用 Markdown 代码围栏。",
           "maxIterations": 3
         }
       },
@@ -106,13 +106,13 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "sendAndWait",
-        "message": "={{ 'The planning agents generated the following implementation contract. Nothing has been changed yet.\\n\\n' + $json.output + '\\n\\nReply APPROVE to use it unchanged. To modify it, paste a complete JSON object with the same keys; submitting that JSON confirms the modified version. Any other response will stop with a validation error before Codex runs.' }}",
+        "message": "={{ '规划 Agent 已生成以下实现契约，目前尚未修改任何代码。\\n\\n' + $json.output + '\\n\\n如果保持原方案，请回复“批准”或 APPROVE。若要修改，请粘贴一个键名结构相同的完整 JSON；提交该 JSON 即表示确认修改后的方案。其他回复会在 Codex 运行前触发校验错误并停止。' }}",
         "responseType": "freeTextChat",
         "options": {}
       },
       "position": [50, 0],
       "webhookId": "talent-ai-agent-data-plan-approval",
-      "notes": "This is the human gate. Codex cannot run until the user explicitly approves the generated plan or submits a complete modified JSON contract.",
+      "notes": "这是人工确认关卡。只有用户明确批准方案，或者提交并确认一份完整的修改版 JSON 契约后，Codex 才能运行。",
       "notesInFlow": true
     },
     {
@@ -122,7 +122,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function parseJson(value) {\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  return JSON.parse(text);\n}\nconst proposed = parseJson($('Goal Specification Agent').item.json.output);\nconst response = String($json.chatInput ?? '').trim();\nlet approvedSpecification;\nlet approvalMode;\nif (/^APPROVE$/i.test(response)) {\n  approvedSpecification = proposed;\n  approvalMode = 'approved-as-proposed';\n} else {\n  try {\n    approvedSpecification = parseJson(response);\n    approvalMode = 'user-modified-and-approved';\n  } catch {\n    throw new Error('Plan was not approved. Reply APPROVE or submit a complete modified JSON contract. Codex has not run.');\n  }\n}\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`Approved plan is missing ${key}.`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('Approved plan requires constraints.');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('Approved plan requires acceptanceCriteria.');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile must remain agent-data-sidebar-targeted because workflow commands are server-controlled.');\nreturn [{ json: { approvedSpecification, approval: { mode: approvalMode, confirmedAt: new Date().toISOString() } } }];"
+        "jsCode": "function parseJson(value) {\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  return JSON.parse(text);\n}\nconst proposed = parseJson($('Goal Specification Agent').item.json.output);\nconst response = String($json.chatInput ?? '').trim();\nlet approvedSpecification;\nlet approvalMode;\nif (/^(APPROVE|批准)$/i.test(response)) {\n  approvedSpecification = proposed;\n  approvalMode = 'approved-as-proposed';\n} else {\n  try {\n    approvedSpecification = parseJson(response);\n    approvalMode = 'user-modified-and-approved';\n  } catch {\n    throw new Error('方案尚未获批准。请回复“批准”或 APPROVE，或者提交完整的修改版 JSON 契约。Codex 尚未运行。');\n  }\n}\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`已批准方案缺少字段：${key}。`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('已批准方案必须包含 constraints。');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('已批准方案必须包含 acceptanceCriteria。');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile 必须保持为 agent-data-sidebar-targeted，因为验证命令由服务端控制。');\nreturn [{ json: { approvedSpecification, approval: { mode: approvalMode, confirmedAt: new Date().toISOString() } } }];"
       },
       "position": [320, 0]
     },
@@ -164,7 +164,7 @@
         "timeoutMinutes": 20
       },
       "position": [900, 0],
-      "notes": "The backend appends the verified LoopContext automatically. This Task intentionally does not duplicate it.",
+      "notes": "后端会自动追加经过验证的 LoopContext，因此这里的 Task 不再重复拼接上下文。",
       "notesInFlow": true
     },
     {
@@ -176,7 +176,7 @@
         "promptType": "define",
         "text": "={{ JSON.stringify({approvedSpecification:$('Finalize Approved Goal Plan').item.json.approvedSpecification, loopContext:$('Goal Loop').item.json.loopContext, codexSummary:$json.codexCoding.summary, changedFiles:$json.codexCoding.changedFiles, diff:$json.codexCoding.diffPreview, deterministicChecks:$json.codexCoding.checks}) }}",
         "options": {
-          "systemMessage": "You are a strict senior reviewer for the Talent-AI self-bootstrap demo. Check the supplied diff evidence against the user-approved goal, constraints, and acceptance criteria. Pay special attention to authenticated project/user scoping, avoiding direct browser access to SQLite, reuse of existing agent APIs, backward compatibility, sidebar routing, useful Agent fields, loading/empty/error states, and meaningful tests. Deterministic checks are authoritative: never mark pass when a required check failed. Return one JSON object only: {\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}. verdict must be pass, revise, or blocked. Each issue must contain id, severity (error or warning), message, and optional suggestion.",
+          "systemMessage": "你是 Talent-AI 自举 Demo 的严格高级代码评审 Agent。请根据用户已经批准的 goal、constraints 和 acceptanceCriteria 审查所提供的 diff 证据。重点检查：身份认证、项目与用户权限范围、浏览器没有直接访问 SQLite、合理复用现有 Agent API、向后兼容、侧边栏路由、展示字段是否有用、加载/空数据/错误状态，以及测试是否有实际意义。确定性检查是权威证据：任何 required 检查失败时都不得给出 pass。只返回一个 JSON 对象：{\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}。verdict 只能是 pass、revise 或 blocked。每个 issue 必须包含 id、severity（error 或 warning）、message，以及可选的 suggestion。JSON 键名和枚举值保持英文，说明内容使用中文。",
           "maxIterations": 3
         }
       },
@@ -195,7 +195,7 @@
         }
       },
       "position": [1180, 260],
-      "notes": "Select the existing DeepSeek credential before the first run.",
+      "notes": "首次运行前请选择现有的 DeepSeek 凭据。",
       "notesInFlow": true
     },
     {
@@ -229,7 +229,7 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "send",
-        "message": "={{ 'Self-bootstrap completed.\\n\\nBranch: ' + String($json.artifact?.branchName ?? $json.bestResult?.artifact?.branchName ?? 'See execution output') + '\\nStop reason: ' + String($json.stopReason ?? 'passed') + '\\n\\nReview the branch, diff, changed files, and deterministic checks in this execution before merging.' }}",
+        "message": "={{ '自举开发已经完成。\\n\\n分支：' + String($json.artifact?.branchName ?? $json.bestResult?.artifact?.branchName ?? '请查看执行输出') + '\\n停止原因：' + String($json.stopReason ?? 'passed') + '\\n\\n合并前请检查本次执行中的分支、diff、修改文件和确定性验证结果。' }}",
         "options": {}
       },
       "position": [900, -270]
@@ -241,7 +241,7 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "send",
-        "message": "={{ 'Self-bootstrap stopped without meeting every acceptance criterion.\\n\\nReason: ' + String($json.stopReason ?? $json.loopState?.status ?? 'unknown') + '\\n\\nThe isolated branch and worktree are retained. Inspect the best artifact, remaining issues, and deterministic checks in the execution output.' }}",
+        "message": "={{ '自举开发已经停止，尚未满足全部验收标准。\\n\\n原因：' + String($json.stopReason ?? $json.loopState?.status ?? 'unknown') + '\\n\\n隔离分支和 worktree 已保留。请在执行输出中检查历史最佳产物、剩余问题和确定性验证结果。' }}",
         "options": {}
       },
       "position": [900, 270]
