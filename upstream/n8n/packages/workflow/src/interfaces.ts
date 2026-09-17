@@ -1132,6 +1132,9 @@ export interface FunctionsBase {
 	isNodeFeatureEnabled(featureName: string): boolean;
 	getExecutionContext: () => IExecutionContext | undefined;
 	listAgents?(): Promise<Array<{ id: string; name: string }>>;
+	listCodexCodingRepositories?(): Promise<
+		Array<import('./codex-coding').CodexCodingRepositoryOption>
+	>;
 
 	/** @deprecated */
 	prepareOutputData(outputData: INodeExecutionData[]): Promise<INodeExecutionData[][]>;
@@ -1248,6 +1251,10 @@ export type IExecuteFunctions = ExecuteFunctions.GetNodeParameterFn &
 			executionId: string,
 			itemIndex: number,
 		): Promise<ExecuteAgentData>;
+		executeCodexCodingAgent(
+			request: import('./codex-coding').CodexCodingRequestV1,
+			itemIndex: number,
+		): Promise<import('./codex-coding').CodexCodingResultV1>;
 		getExecutionDataById(executionId: string): Promise<IRunExecutionData | undefined>;
 		getInputConnectionData(
 			connectionType: AINodeConnectionType,
@@ -3442,6 +3449,8 @@ export interface ITaskMetadata {
 
 	/** State for one Goal Loop round. The editor uses it to render the loop timeline. */
 	loopEngineering?: import('./loop-engineering').LoopEngineeringTaskMetadata;
+	/** Summary for one Codex Coding Agent turn. */
+	codexCoding?: import('./codex-coding').CodexCodingTaskMetadata;
 }
 
 /** The data that gets returned when a node execution starts */

@@ -664,6 +664,7 @@
       "dist/nodes/LoneScale/LoneScale.node.js",
       "dist/nodes/LoopEngineering/GoalLoop/GoalLoop.node.js",
       "dist/nodes/LoopEngineering/LoopEvaluation/LoopEvaluation.node.js",
+      "dist/nodes/CodexCodingAgent/CodexCodingAgent.node.js",
       "dist/nodes/Magento/Magento2.node.js",
       "dist/nodes/Mailcheck/Mailcheck.node.js",
       "dist/nodes/Mailchimp/Mailchimp.node.js",

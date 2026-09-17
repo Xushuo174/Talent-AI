@@ -1,6 +1,7 @@
 import type { SsrfBridge } from '@n8n/backend-network';
 import type {
 	DataTableProxyProvider,
+	CodexCodingProxy,
 	DynamicCredentialCheckProxyProvider,
 	IExecutionContext,
 	IHttpRequestOptions,
@@ -51,6 +52,7 @@ declare module 'n8n-workflow' {
 		'data-table'?: { dataTableProxyProvider: DataTableProxyProvider };
 		'dynamic-credentials'?: { credentialCheckProxy: DynamicCredentialCheckProxyProvider };
 		'oauth-jwe'?: { oauthJweProxyProvider: OauthJweProxyProvider };
+		'codex-coding'?: { codexCodingProxy: CodexCodingProxy };
 		// Project ID is currently only added on the additionalData if the user
 		// has data table listing permission for that project. We should consider
 		// that only data tables belonging to their respective projects are shown.

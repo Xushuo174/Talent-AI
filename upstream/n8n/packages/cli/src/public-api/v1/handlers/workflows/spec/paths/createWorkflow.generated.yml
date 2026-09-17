@@ -273,6 +273,27 @@ requestBody:
                   items:
                     type: string
                   description: IDs of the nodes that belong to this group
+                kind:
+                  type: string
+                  enum:
+                    - visual
+                    - loop
+                loop:
+                  type: object
+                  properties:
+                    version:
+                      type: number
+                      enum:
+                        - 1
+                    controllerNodeId:
+                      type: string
+                    evaluatorNodeId:
+                      type: string
+                  required:
+                    - version
+                    - controllerNodeId
+                    - evaluatorNodeId
+                  additionalProperties: false
               required:
                 - id
                 - name
@@ -507,6 +528,26 @@ requestBody:
                       type: string
                       description: Display name of the node group
                       example: Data processing
+                    kind:
+                      type: string
+                      enum:
+                        - visual
+                        - loop
+                    loop:
+                      type: object
+                      properties:
+                        version:
+                          type: number
+                          enum:
+                            - 1
+                        controllerNodeId:
+                          type: string
+                        evaluatorNodeId:
+                          type: string
+                      required:
+                        - version
+                        - controllerNodeId
+                        - evaluatorNodeId
                     description:
                       type: string
                       maxLength: 155
@@ -700,6 +741,26 @@ responses:
                     type: string
                     description: Display name of the node group
                     example: Data processing
+                  kind:
+                    type: string
+                    enum:
+                      - visual
+                      - loop
+                  loop:
+                    type: object
+                    properties:
+                      version:
+                        type: number
+                        enum:
+                          - 1
+                      controllerNodeId:
+                        type: string
+                      evaluatorNodeId:
+                        type: string
+                    required:
+                      - version
+                      - controllerNodeId
+                      - evaluatorNodeId
                   description:
                     type: string
                     maxLength: 155
@@ -1072,6 +1133,26 @@ responses:
                         type: string
                         description: Display name of the node group
                         example: Data processing
+                      kind:
+                        type: string
+                        enum:
+                          - visual
+                          - loop
+                      loop:
+                        type: object
+                        properties:
+                          version:
+                            type: number
+                            enum:
+                              - 1
+                          controllerNodeId:
+                            type: string
+                          evaluatorNodeId:
+                            type: string
+                        required:
+                          - version
+                          - controllerNodeId
+                          - evaluatorNodeId
                       description:
                         type: string
                         maxLength: 155

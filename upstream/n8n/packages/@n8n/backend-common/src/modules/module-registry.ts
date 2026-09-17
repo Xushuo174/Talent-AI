@@ -73,6 +73,7 @@ export class ModuleRegistry {
 		'mcp-registry',
 		'workflow-reviews',
 		'instance-ai',
+		'codex-coding',
 	];
 
 	private readonly activeModules: string[] = [];

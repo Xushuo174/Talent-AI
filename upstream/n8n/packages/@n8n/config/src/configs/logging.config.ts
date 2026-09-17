@@ -55,6 +55,7 @@ export const LOG_SCOPES = [
 	'enqueued-execution-recovery',
 	'engine-v2',
 	'policy',
+	'codex-coding',
 ] as const;
 
 export type LogScope = (typeof LOG_SCOPES)[number];

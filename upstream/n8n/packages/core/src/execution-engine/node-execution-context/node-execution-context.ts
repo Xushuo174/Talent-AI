@@ -262,6 +262,10 @@ export abstract class NodeExecutionContext implements Omit<FunctionsBase, 'getCr
 		return await this.additionalData.listAgents(this.additionalData.userId);
 	}
 
+	async listCodexCodingRepositories() {
+		return (await this.additionalData['codex-coding']?.codexCodingProxy.listRepositories()) ?? [];
+	}
+
 	getInstanceId() {
 		return this.instanceSettings.instanceId;
 	}

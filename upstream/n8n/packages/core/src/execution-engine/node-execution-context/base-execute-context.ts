@@ -29,6 +29,8 @@ import type {
 	ExecuteAgentWorkflowContext,
 	IDataObject,
 	StructuredChunk,
+	CodexCodingRequestV1,
+	CodexCodingResultV1,
 } from 'n8n-workflow';
 import {
 	UnexpectedError,
@@ -269,6 +271,31 @@ export class BaseExecuteContext extends NodeExecutionContext {
 				...(sendResponseChunk ? { sendResponseChunk } : {}),
 			},
 		);
+	}
+
+	async executeCodexCodingAgent(
+		request: CodexCodingRequestV1,
+		itemIndex: number,
+	): Promise<CodexCodingResultV1> {
+		const proxy = this.additionalData['codex-coding']?.codexCodingProxy;
+		if (!proxy) {
+			throw new OperationalError('Codex Coding Agent is not available in this context');
+		}
+		if (!this.workflow.id) {
+			throw new OperationalError('Codex Coding Agent requires a saved workflow');
+		}
+
+		return await proxy.execute(request, {
+			workflowExecutionId: this.getExecutionId(),
+			workflowId: this.workflow.id,
+			workflowName: this.workflow.name ?? 'Untitled workflow',
+			nodeId: this.node.id,
+			nodeName: this.node.name,
+			runIndex: this.runIndex,
+			itemIndex,
+			...(this.additionalData.projectId ? { projectId: this.additionalData.projectId } : {}),
+			...(this.abortSignal ? { abortSignal: this.abortSignal } : {}),
+		});
 	}
 
 	isStreaming(): boolean {

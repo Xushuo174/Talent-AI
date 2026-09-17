@@ -1,0 +1,296 @@
+{
+  "name": "05-Self Bootstrap with Codex",
+  "nodes": [
+    {
+      "id": "51000000-0000-4000-8000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000002",
+      "name": "Self-Bootstrap Goal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { demo: 'Codex modifies the Codex Coding Agent in an isolated worktree. The running Talent-AI checkout must stay unchanged.' } }];"
+      },
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000003",
+      "name": "Goal Loop",
+      "type": "n8n-nodes-base.goalLoop",
+      "typeVersion": 1,
+      "parameters": {
+        "goal": "Add a small, reviewable feature and unit test to the Codex Coding Agent node in the isolated Talent-AI worktree.",
+        "constraints": "Modify only files needed for the feature.\nDo not use the network.\nDo not merge, push, stash, or change the main checkout.\nKeep existing node behavior compatible.",
+        "acceptanceCriteria": "Add an optional boolean parameter named Include Diff Preview.\nWhen disabled, the node output must omit diffPreview from the public artifact.\nDefault behavior must remain enabled.\nAdd focused unit tests.\nAll configured deterministic checks pass.\nReviewer score is at least 80.",
+        "maxRounds": 3,
+        "reviewerThreshold": 80,
+        "stagnationRounds": 2,
+        "historyWindow": 3,
+        "additionalContextTemplate": "This is the Talent-AI self-bootstrap demonstration."
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000004",
+      "name": "Codex Coding Agent",
+      "type": "n8n-nodes-base.codexCodingAgent",
+      "typeVersion": 1,
+      "parameters": {
+        "repositoryId": {
+          "mode": "list",
+          "value": "talent-ai"
+        },
+        "task": "={{ 'Implement the requested self-bootstrap feature in the current repository. Read the existing Codex Coding Agent implementation first. Add focused tests and keep the change small.\\n\\nLoop context:\\n' + JSON.stringify($json.loopContext) }}",
+        "goal": "={{ $json.loopContext.goal }}",
+        "verificationProfile": {
+          "mode": "list",
+          "value": "codex-node-targeted"
+        },
+        "model": "",
+        "reasoningEffort": "high",
+        "timeoutMinutes": 20
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000005",
+      "name": "Code Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({goal:$('Goal Loop').item.json.loopContext.goal, acceptanceCriteria:$('Goal Loop').item.json.loopContext.acceptanceCriteria, summary:$json.codexCoding.summary, changedFiles:$json.codexCoding.changedFiles, diff:$json.codexCoding.diffPreview, checks:$json.codexCoding.checks}) }}",
+        "options": {
+          "systemMessage": "You are a strict code reviewer. Review only the supplied diff summary, changed files, checks, and acceptance criteria. Do not invent evidence. Return one JSON object only: {\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}. verdict must be pass, revise, or blocked. Use blocked only when evidence is unavailable. Each issue must contain id, severity (error or warning), message, and optional suggestion.",
+          "maxIterations": 3
+        }
+      },
+      "position": [
+        1050,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000006",
+      "name": "Merge Review Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const codex = $('Codex Coding Agent').item.json;\nlet reviewer;\ntry {\n  const text = String($json.output ?? '').replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  reviewer = JSON.parse(text);\n} catch {\n  reviewer = { score: 0, verdict: 'blocked', summary: 'Reviewer did not return valid JSON.', issues: [{ id: 'review-json', severity: 'error', message: 'Reviewer output is unavailable or invalid.' }] };\n}\nreturn [{ json: { artifact: codex.artifact, checks: codex.checks, reviewer, extraContext: { codexRunId: codex.codexCoding.runId, threadId: codex.codexCoding.threadId, turnId: codex.codexCoding.turnId, summary: codex.codexCoding.summary } } }];"
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000007",
+      "name": "Loop Evaluation",
+      "type": "n8n-nodes-base.loopEvaluation",
+      "typeVersion": 1,
+      "parameters": {
+        "artifactField": "artifact",
+        "checksField": "checks",
+        "reviewerField": "reviewer",
+        "extraContextField": "extraContext"
+      },
+      "position": [
+        1550,
+        0
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000008",
+      "name": "DeepSeek Review Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "parameters": {
+        "model": "deepseek-flash",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "position": [
+        1030,
+        250
+      ],
+      "notes": "Select your existing DeepSeek credential before the first run.",
+      "notesInFlow": true
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000009",
+      "name": "Branch + Diff + Checks",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        800,
+        -240
+      ]
+    },
+    {
+      "id": "51000000-0000-4000-8000-000000000010",
+      "name": "Best Result + Remaining Issues",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        800,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Self-Bootstrap Goal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Self-Bootstrap Goal": {
+      "main": [
+        [
+          {
+            "node": "Goal Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Goal Loop": {
+      "main": [
+        [
+          {
+            "node": "Codex Coding Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Branch + Diff + Checks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Best Result + Remaining Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codex Coding Agent": {
+      "main": [
+        [
+          {
+            "node": "Code Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Review Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Code Reviewer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Reviewer Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Review Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Review Evidence": {
+      "main": [
+        [
+          {
+            "node": "Loop Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Goal Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "51000000-0000-4000-8000-000000000011",
+      "name": "Self-Bootstrap Codex Loop",
+      "description": "One workflow execution owns one isolated worktree and Codex thread. Loop rounds reuse both.",
+      "nodeIds": [
+        "51000000-0000-4000-8000-000000000003",
+        "51000000-0000-4000-8000-000000000004",
+        "51000000-0000-4000-8000-000000000005",
+        "51000000-0000-4000-8000-000000000006",
+        "51000000-0000-4000-8000-000000000007",
+        "51000000-0000-4000-8000-000000000008"
+      ],
+      "kind": "loop",
+      "loop": {
+        "version": 1,
+        "controllerNodeId": "51000000-0000-4000-8000-000000000003",
+        "evaluatorNodeId": "51000000-0000-4000-8000-000000000007"
+      }
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

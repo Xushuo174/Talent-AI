@@ -16,6 +16,7 @@ export * from './safe-regex';
 export * from './global-state';
 export * from './interfaces';
 export * from './loop-engineering';
+export * from './codex-coding';
 export {
 	fromFunction,
 	fromParameter,

@@ -160,4 +160,44 @@ describe('RunInfo', () => {
 			expect(tooltip).toHaveTextContent('Execution time');
 		});
 	});
+
+	it('should display a Codex run card trigger when turn metadata is present', () => {
+		const taskData: ITaskData = mock<ITaskData>({
+			startTime: Date.now(),
+			executionTime: 1500,
+			executionStatus: 'success',
+			data: {},
+			metadata: {
+				codexCoding: {
+					runId: 'run-1',
+					threadId: 'thread-1',
+					turnId: 'turn-1',
+					round: 2,
+					status: 'completed',
+					branchName: 'talent-ai/codex/execution-node',
+					baseCommit: '0123456789abcdef',
+					changedFiles: ['src/example.ts'],
+					diffStat: '1 file changed',
+					checks: [{ id: 'test', passed: true, message: 'Tests passed' }],
+				},
+			},
+		});
+
+		const { getByTestId } = renderComponent({
+			props: { taskData, hasStaleData: false, hasPinData: false },
+		});
+
+		expect(getByTestId('codex-run-card-trigger')).toHaveTextContent('completed');
+	});
+});
+
+vi.mock('@n8n/stores/useRootStore', () => ({
+	useRootStore: () => ({ restUrl: '/rest' }),
+}));
+
+vi.mock('@/app/stores/workflowDocument.store', async () => {
+	const { shallowRef } = await import('vue');
+	return {
+		injectWorkflowDocumentStore: () => shallowRef({ homeProject: { id: 'project-1' } }),
+	};
 });
