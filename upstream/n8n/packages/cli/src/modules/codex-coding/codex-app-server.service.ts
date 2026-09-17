@@ -89,12 +89,16 @@ export class CodexAppServerService {
 	}
 
 	private async startProcess(): Promise<void> {
-		const child = spawn(this.config.executable, ['app-server', '--listen', 'stdio://'], {
-			shell: false,
-			windowsHide: true,
-			stdio: ['pipe', 'pipe', 'pipe'],
-			env: process.env,
-		});
+		const child = spawn(
+			this.config.executable,
+			['-c', 'features.goals=true', 'app-server', '--listen', 'stdio://'],
+			{
+				shell: false,
+				windowsHide: true,
+				stdio: ['pipe', 'pipe', 'pipe'],
+				env: process.env,
+			},
+		);
 		this.process = child;
 		this.lines = createInterface({ input: child.stdout });
 		this.lines.on('line', (line) => this.handleLine(line));
