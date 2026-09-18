@@ -1,5 +1,5 @@
 {
-  "name": "06-Agent Data Sidebar Self-Bootstrap",
+  "name": "06-Codex Runs Sidebar Self-Bootstrap",
   "nodes": [
     {
       "id": "62000000-0000-4000-8000-000000000001",
@@ -10,7 +10,7 @@
         "public": false,
         "mode": "hostedChat",
         "authentication": "none",
-        "initialMessages": "请补充 Agent Data 侧边栏自举 Demo 的额外要求；如果没有额外要求，可以直接发送默认需求。",
+        "initialMessages": "请补充 Codex Runs 侧边栏自举 Demo 的额外要求；如果没有额外要求，可以直接发送默认需求。",
         "options": {
           "responseMode": "responseNodes"
         }
@@ -19,7 +19,7 @@
         -1260,
         0
       ],
-      "webhookId": "talent-ai-agent-data-self-bootstrap"
+      "webhookId": "talent-ai-codex-runs-self-bootstrap"
     },
     {
       "id": "62000000-0000-4000-8000-000000000002",
@@ -28,9 +28,9 @@
       "typeVersion": 3.1,
       "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify({ request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', entry: 'Agent Data', targetUsers: '对相关项目具有访问权限的已登录用户', readOnly: true }) }}",
+        "text": "={{ JSON.stringify({ request: $json.chatInput || '在平台侧边栏新增 Codex Runs 入口，只读可视化展示 C:\\\\Users\\\\XuperMan\\\\.n8n\\\\database.sqlite 中的 Codex Coding Agent 运行记录。', entry: 'Codex Runs', targetUsers: '对相关项目具有 workflow:read 权限的已登录用户', readOnly: true }) }}",
         "options": {
-          "systemMessage": "你是产品体验设计 Agent。只设计一次编码任务能完成的最小可演示版本，不扩展额外功能。只返回一个 JSON 对象，字段固定为 role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。数量上限：pageSections 最多 3 项、visibleFields 最多 6 项、filters 最多 2 项、acceptanceCriteria 最多 4 项、risks 最多 2 项。每项只写一句话，总输出不超过 500 个中文字符。页面只读，不得声称尚未实现的代码已经存在。",
+          "systemMessage": "你是产品体验设计 Agent。只设计一次编码任务能完成的最小可演示版本，不扩展额外功能。页面目标是让用户快速看懂平台内 Codex Coding Agent 的运行情况。只返回一个 JSON 对象，字段固定为 role、userExperience、sidebarEntry、pageSections、visibleFields、filters、acceptanceCriteria、risks。数量上限：pageSections 最多 3 项，固定围绕汇总卡片、状态分布、最近运行；visibleFields 最多 6 项；filters 最多 1 项；acceptanceCriteria 最多 4 项；risks 最多 2 项。每项只写一句话，总输出不超过 500 个中文字符。页面只读，不得加入编辑、重跑、合并、删除或任意 SQL 功能，不得声称尚未实现的代码已经存在。",
           "maxIterations": 2
         }
       },
@@ -46,9 +46,9 @@
       "typeVersion": 3.1,
       "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。', verifiedSourceFacts: ['Agent 实体映射到 agents 表，并保存 projectId、schema、integrations、tools、skills、activeVersionId、revision、createdAt 和 updatedAt。', 'AgentsListController 已提供经过身份认证的 GET /agents/v2，只返回当前用户可访问的 Agent。', 'AgentsController 已提供项目范围的 GET /projects/:projectId/agents/v2 和 GET /:agentId/summary。', '前端 AgentsModule 已注册 Agent 路由和项目标签页。', '前端代码绝不能直接打开 SQLite 文件。']}) }}",
+        "text": "={{ JSON.stringify({request: $json.chatInput || '在平台侧边栏新增 Codex Runs 入口，只读可视化展示 C:\\\\Users\\\\XuperMan\\\\.n8n\\\\database.sqlite 中的 Codex Coding Agent 运行记录。', verifiedSourceFacts: ['本机 n8n SQLite 文件为 C:\\\\Users\\\\XuperMan\\\\.n8n\\\\database.sqlite，但后端必须通过现有 TypeORM DataSource 和 Repository 访问。', 'codex_coding_run 已保存 projectId、workflowId、workflowExecutionId、repositoryId、baseCommit、branchName、worktreePath、codexThreadId、status、lastTurnId、error、createdAt 和 updatedAt。', 'codex_coding_turn 已保存 runId、turnId、round、status、summary、usage、checks、error、diffArtifactId、createdAt 和 updatedAt。', 'CodexCodingModule 已注册 CodexCodingRun 与 CodexCodingTurn 实体。', 'CodexCodingController 当前只有 repositories、health 和受 ProjectScope(workflow:read) 保护的 diff 接口，尚无运行列表接口。', 'CodexCodingRunRepository 与 CodexCodingTurnRepository 当前没有面向概览页的聚合查询。', '浏览器绝不能直接打开 SQLite 文件。']}) }}",
         "options": {
-          "systemMessage": "你是数据与安全架构 Agent。基于输入中的已验证源码事实，为只读 Agent Data 页面给出最小改动方案。优先复用现有 AgentsService 和认证后的 REST API；仅在现有响应缺字段时提出最小 DTO 或只读接口。浏览器不得直接访问 SQLite，不得暴露数据库路径或密钥。只返回一个 JSON 对象，字段固定为 role、dataSource、existingComponentsToReuse、backendChanges、apiContract、permissions、sqliteNotes、tests、constraints、risks。数量上限：复用项最多 4 项、后端改动最多 2 项、测试最多 3 项、约束最多 3 项、风险最多 2 项。每项只写一句话，总输出不超过 600 个中文字符，并区分已验证事实与计划改动。",
+          "systemMessage": "你是数据与安全架构 Agent。基于输入中的已验证源码事实，为只读 Codex Runs 页面给出最小改动方案。数据必须来自 n8n 自己的 codex_coding_run 和 codex_coding_turn 实体，后端新增最小的项目范围查询与只读 REST 接口，复用 ProjectScope(workflow:read)。不得让浏览器直接访问 SQLite，不得暴露 worktreePath、codexSessionId、完整本地路径、原始提示词或未清理的错误堆栈。只返回一个 JSON 对象，字段固定为 role、dataSource、existingComponentsToReuse、backendChanges、apiContract、permissions、sqliteNotes、tests、constraints、risks。数量上限：复用项最多 4 项、后端改动最多 2 项、测试最多 3 项、约束最多 3 项、风险最多 2 项。每项只写一句话，总输出不超过 650 个中文字符，并区分已验证事实与计划改动。",
           "maxIterations": 2
         }
       },
@@ -96,7 +96,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function parseJson(value, label) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  try {\n    const parsed = JSON.parse(text);\n    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('不是对象');\n    return parsed;\n  } catch {\n    throw new Error(`${label} 必须返回有效 JSON 对象。`);\n  }\n}\nconst keep = (value) => typeof value === 'string' ? value.trim() : (value ?? null);\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(keep)\n  .filter((item) => item !== null && item !== '')\n  .slice(0, max);\nconst product = parseJson($('Product Experience Agent').first().json.output, 'Product Experience Agent');\nconst architecture = parseJson($('Data Security Architect Agent').first().json.output, 'Data Security Architect Agent');\nconst requestedFeature = String($('When chat message received').first().json.chatInput || '在平台侧边栏新增 Agent Data 入口，可视化展示项目 SQLite 数据库中的预设 Agent 信息。').trim();\nreturn [{ json: {\n  requestedFeature,\n  productDesign: {\n    userExperience: keep(product.userExperience),\n    sidebarEntry: keep(product.sidebarEntry),\n    pageSections: list(product.pageSections, 3),\n    visibleFields: list(product.visibleFields, 6),\n    filters: list(product.filters, 2),\n    acceptanceCriteria: list(product.acceptanceCriteria, 4),\n    risks: list(product.risks, 2),\n  },\n  architectureDesign: {\n    dataSource: keep(architecture.dataSource),\n    existingComponentsToReuse: list(architecture.existingComponentsToReuse, 4),\n    backendChanges: list(architecture.backendChanges, 2),\n    apiContract: keep(architecture.apiContract),\n    permissions: keep(architecture.permissions),\n    sqliteNotes: keep(architecture.sqliteNotes),\n    tests: list(architecture.tests, 3),\n    constraints: list(architecture.constraints, 3),\n    risks: list(architecture.risks, 2),\n  },\n  requiredVerificationProfile: 'agent-data-sidebar-targeted'\n} }];"
+        "jsCode": "function parseJson(value, label) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  try {\n    const parsed = JSON.parse(text);\n    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('不是对象');\n    return parsed;\n  } catch {\n    throw new Error(`${label} 必须返回有效 JSON 对象。`);\n  }\n}\nconst keep = (value) => typeof value === 'string' ? value.trim() : (value ?? null);\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(keep)\n  .filter((item) => item !== null && item !== '')\n  .slice(0, max);\nconst product = parseJson($('Product Experience Agent').first().json.output, 'Product Experience Agent');\nconst architecture = parseJson($('Data Security Architect Agent').first().json.output, 'Data Security Architect Agent');\nconst requestedFeature = String($('When chat message received').first().json.chatInput || '在平台侧边栏新增 Codex Runs 入口，只读可视化展示 C:\\\\Users\\\\XuperMan\\\\.n8n\\\\database.sqlite 中的 Codex Coding Agent 运行记录。').trim();\nreturn [{ json: {\n  requestedFeature,\n  productDesign: {\n    userExperience: keep(product.userExperience),\n    sidebarEntry: keep(product.sidebarEntry),\n    pageSections: list(product.pageSections, 3),\n    visibleFields: list(product.visibleFields, 6),\n    filters: list(product.filters, 1),\n    acceptanceCriteria: list(product.acceptanceCriteria, 4),\n    risks: list(product.risks, 2),\n  },\n  architectureDesign: {\n    dataSource: keep(architecture.dataSource),\n    existingComponentsToReuse: list(architecture.existingComponentsToReuse, 4),\n    backendChanges: list(architecture.backendChanges, 2),\n    apiContract: keep(architecture.apiContract),\n    permissions: keep(architecture.permissions),\n    sqliteNotes: keep(architecture.sqliteNotes),\n    tests: list(architecture.tests, 3),\n    constraints: list(architecture.constraints, 3),\n    risks: list(architecture.risks, 2),\n  },\n  requiredVerificationProfile: 'codex-runs-sidebar-targeted'\n} }];"
       },
       "position": [
         -470,
@@ -112,7 +112,7 @@
         "promptType": "define",
         "text": "={{ JSON.stringify($json) }}",
         "options": {
-          "systemMessage": "你是主规划 Agent。把产品方案和架构方案压缩为一个能由 Codex 在单个隔离 worktree 中完成的最小实现契约。只保留用户明确要求和安全边界，不加入搜索、分页、编辑、监控等额外功能。verificationProfile 必须严格等于 agent-data-sidebar-targeted；新增测试文件名必须包含小写 agent-data-overview。只返回有效 JSON：{\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"agent-data-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}。goal 一句话；constraints 只写 3 至 4 条；acceptanceCriteria 只写 5 条；implementationTask 不超过 600 个中文字符；designSummary 每项一句话。键名和枚举使用英文，内容使用中文，不要 Markdown。",
+          "systemMessage": "你是主规划 Agent。把产品方案和架构方案压缩为一个能由 Codex 在单个隔离 worktree 中完成的最小实现契约。只实现 Codex Runs 侧边栏入口、只读概览页、项目权限范围内的运行聚合 API，以及必要测试；不加入编辑、重跑、合并、删除、任意 SQL、外部 Codex 数据库或复杂图表。verificationProfile 必须严格等于 codex-runs-sidebar-targeted；新增测试文件名必须包含小写 codex-runs-overview。只返回有效 JSON：{\"version\":1,\"title\":\"...\",\"goal\":\"...\",\"constraints\":[\"...\"],\"acceptanceCriteria\":[\"...\"],\"implementationTask\":\"...\",\"verificationProfile\":\"codex-runs-sidebar-targeted\",\"reviewerInstructions\":\"...\",\"designSummary\":{\"navigation\":\"...\",\"data\":\"...\",\"security\":\"...\",\"tests\":\"...\"}}。goal 一句话；constraints 只写 3 至 4 条；acceptanceCriteria 只写 5 条；implementationTask 不超过 700 个中文字符；designSummary 每项一句话。键名和枚举使用英文，内容使用中文，不要 Markdown。",
           "maxIterations": 2
         }
       },
@@ -146,8 +146,8 @@
         310,
         0
       ],
-      "webhookId": "talent-ai-agent-data-plan-approval",
-      "notes": "按钮式人工确认关卡。完整内部 JSON 不发送到 Chat；只有明确点击“批准方案”后 Codex 才能运行。",
+      "webhookId": "talent-ai-codex-runs-plan-approval",
+      "notes": "按钮式人工确认关卡。Chat 只展示 Codex Runs 的精简方案；只有明确点击“批准方案”后 Codex 才能运行。",
       "notesInFlow": true
     },
     {
@@ -157,7 +157,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "function parseJson(value) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  const parsed = JSON.parse(text);\n  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('规划 Agent 必须返回 JSON 对象。');\n  return parsed;\n}\nconst text = (value) => String(value ?? '').trim();\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(text).filter(Boolean).slice(0, max);\nconst raw = parseJson($json.output);\nconst plan = {\n  version: 1,\n  title: text(raw.title || 'Agent Data 侧边栏最小实现'),\n  goal: text(raw.goal),\n  constraints: list(raw.constraints, 4),\n  acceptanceCriteria: list(raw.acceptanceCriteria, 5),\n  implementationTask: text(raw.implementationTask),\n  verificationProfile: 'agent-data-sidebar-targeted',\n  reviewerInstructions: text(raw.reviewerInstructions),\n  designSummary: {\n    navigation: text(raw.designSummary?.navigation),\n    data: text(raw.designSummary?.data),\n    security: text(raw.designSummary?.security),\n    tests: text(raw.designSummary?.tests),\n  },\n};\nfor (const key of ['goal', 'implementationTask', 'reviewerInstructions']) {\n  if (!plan[key]) throw new Error(`规划方案缺少字段：${key}。`);\n}\nif (plan.constraints.length < 1) throw new Error('规划方案至少需要一条约束。');\nif (plan.acceptanceCriteria.length < 1) throw new Error('规划方案至少需要一条验收标准。');\nconst numbered = (items) => items.map((item, index) => `${index + 1}. ${item}`).join('\\n');\nconst planSummary = [\n  `方案：${plan.title}`,\n  `目标：${plan.goal}`,\n  `约束（${plan.constraints.length} 条）：\\n${numbered(plan.constraints)}`,\n  `验收标准（${plan.acceptanceCriteria.length} 条）：\\n${numbered(plan.acceptanceCriteria)}`,\n  `实现范围：${plan.designSummary.navigation || '侧边栏入口与页面'}；${plan.designSummary.data || '复用现有数据接口'}`,\n].join('\\n\\n');\nreturn [{ json: { plan, planSummary } }];"
+        "jsCode": "function parseJson(value) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  const text = String(value ?? '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '');\n  const parsed = JSON.parse(text);\n  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('规划 Agent 必须返回 JSON 对象。');\n  return parsed;\n}\nconst text = (value) => String(value ?? '').trim();\nconst list = (value, max) => (Array.isArray(value) ? value : [])\n  .map(text).filter(Boolean).slice(0, max);\nconst raw = parseJson($json.output);\nconst plan = {\n  version: 1,\n  title: text(raw.title || 'Codex Runs 侧边栏最小实现'),\n  goal: text(raw.goal),\n  constraints: list(raw.constraints, 4),\n  acceptanceCriteria: list(raw.acceptanceCriteria, 5),\n  implementationTask: text(raw.implementationTask),\n  verificationProfile: 'codex-runs-sidebar-targeted',\n  reviewerInstructions: text(raw.reviewerInstructions),\n  designSummary: {\n    navigation: text(raw.designSummary?.navigation),\n    data: text(raw.designSummary?.data),\n    security: text(raw.designSummary?.security),\n    tests: text(raw.designSummary?.tests),\n  },\n};\nfor (const key of ['goal', 'implementationTask', 'reviewerInstructions']) {\n  if (!plan[key]) throw new Error(`规划方案缺少字段：${key}。`);\n}\nif (plan.constraints.length < 1) throw new Error('规划方案至少需要一条约束。');\nif (plan.acceptanceCriteria.length < 1) throw new Error('规划方案至少需要一条验收标准。');\nconst numbered = (items) => items.map((item, index) => `${index + 1}. ${item}`).join('\\n');\nconst planSummary = [\n  `方案：${plan.title}`,\n  `目标：${plan.goal}`,\n  `约束（${plan.constraints.length} 条）：\\n${numbered(plan.constraints)}`,\n  `验收标准（${plan.acceptanceCriteria.length} 条）：\\n${numbered(plan.acceptanceCriteria)}`,\n  `实现范围：${plan.designSummary.navigation || '侧边栏入口与页面'}；${plan.designSummary.data || '复用现有数据接口'}`,\n].join('\\n\\n');\nreturn [{ json: { plan, planSummary } }];"
       },
       "position": [
         50,
@@ -207,7 +207,7 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "sendAndWait",
-        "message": "请用一两句话说明要修改什么，例如：只保留列表页；字段减少为名称、状态、工具数和更新时间。",
+        "message": "请用一两句话说明要修改什么，例如：只保留汇总卡片和最近运行列表；最近运行只显示状态、仓库、分支和更新时间。",
         "responseType": "freeTextChat",
         "options": {}
       },
@@ -215,7 +215,7 @@
         570,
         300
       ],
-      "webhookId": "talent-ai-agent-data-plan-changes",
+      "webhookId": "talent-ai-codex-runs-plan-changes",
       "notes": "只收集自然语言修改意见，不要求用户编辑 JSON。",
       "notesInFlow": true
     },
@@ -226,7 +226,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const requestedChanges = String($json.chatInput ?? '').trim();\nif (!requestedChanges) throw new Error('修改意见不能为空。Codex 尚未运行。');\nconst currentPlan = $('Normalize Goal Plan').last().json.plan;\nreturn [{ json: {\n  currentPlan,\n  requestedChanges,\n  limits: {\n    constraints: '最多 4 条',\n    acceptanceCriteria: '最多 5 条',\n    implementationTask: '最多 600 个中文字符',\n    scope: '只修改用户指出的内容，不增加新功能',\n  },\n} }];"
+        "jsCode": "const requestedChanges = String($json.chatInput ?? '').trim();\nif (!requestedChanges) throw new Error('修改意见不能为空。Codex 尚未运行。');\nconst currentPlan = $('Normalize Goal Plan').last().json.plan;\nreturn [{ json: {\n  currentPlan,\n  requestedChanges,\n  limits: {\n    constraints: '最多 4 条',\n    acceptanceCriteria: '最多 5 条',\n    implementationTask: '最多 700 个中文字符',\n    scope: '只修改用户指出的内容，不增加新功能',\n  },\n} }];"
       },
       "position": [
         310,
@@ -242,7 +242,7 @@
         "promptType": "define",
         "text": "={{ JSON.stringify($json) }}",
         "options": {
-          "systemMessage": "你是方案修订 Agent。根据 requestedChanges 修改 currentPlan，只改用户明确指出的内容，不扩展范围。必须保留 verificationProfile=agent-data-sidebar-targeted 和测试文件名包含 agent-data-overview 的要求。只返回与 currentPlan 键名结构相同的有效 JSON。constraints 最多 4 条，acceptanceCriteria 最多 5 条，implementationTask 不超过 600 个中文字符，designSummary 每项一句话。内容使用中文，不要 Markdown。",
+          "systemMessage": "你是方案修订 Agent。根据 requestedChanges 修改 currentPlan，只改用户明确指出的内容，不扩展范围。必须保留 verificationProfile=codex-runs-sidebar-targeted 和测试文件名包含 codex-runs-overview 的要求。只返回与 currentPlan 键名结构相同的有效 JSON。constraints 最多 4 条，acceptanceCriteria 最多 5 条，implementationTask 不超过 700 个中文字符，designSummary 每项一句话。内容使用中文，不要 Markdown。",
           "maxIterations": 2
         }
       },
@@ -258,7 +258,7 @@
       "typeVersion": 2,
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const approvedSpecification = $('Normalize Goal Plan').last().json.plan;\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`已批准方案缺少字段：${key}。`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('已批准方案必须包含 constraints。');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('已批准方案必须包含 acceptanceCriteria。');\nif (approvedSpecification.verificationProfile !== 'agent-data-sidebar-targeted') throw new Error('verificationProfile 必须保持为 agent-data-sidebar-targeted。');\nlet mode = 'approved-as-proposed';\ntry {\n  if ($('Revise Goal Specification Agent').last().json.output) mode = 'approved-after-revision';\n} catch {}\nreturn [{ json: { approvedSpecification, approval: { mode, confirmedAt: new Date().toISOString() } } }];"
+        "jsCode": "const approvedSpecification = $('Normalize Goal Plan').last().json.plan;\nconst requiredString = ['goal', 'implementationTask', 'reviewerInstructions', 'verificationProfile'];\nfor (const key of requiredString) {\n  if (typeof approvedSpecification[key] !== 'string' || !approvedSpecification[key].trim()) throw new Error(`已批准方案缺少字段：${key}。`);\n}\nif (!Array.isArray(approvedSpecification.constraints) || approvedSpecification.constraints.length === 0) throw new Error('已批准方案必须包含 constraints。');\nif (!Array.isArray(approvedSpecification.acceptanceCriteria) || approvedSpecification.acceptanceCriteria.length === 0) throw new Error('已批准方案必须包含 acceptanceCriteria。');\nif (approvedSpecification.verificationProfile !== 'codex-runs-sidebar-targeted') throw new Error('verificationProfile 必须保持为 codex-runs-sidebar-targeted。');\nlet mode = 'approved-as-proposed';\ntry {\n  if ($('Revise Goal Specification Agent').last().json.output) mode = 'approved-after-revision';\n} catch {}\nreturn [{ json: { approvedSpecification, approval: { mode, confirmedAt: new Date().toISOString() } } }];"
       },
       "position": [
         830,
@@ -296,12 +296,12 @@
           "value": "talent-ai"
         },
         "task": "={{ $('Finalize Approved Goal Plan').item.json.approvedSpecification.implementationTask }}",
-        "goal": "={{ $json.loopContext.goal }}",
+        "goal": "",
         "verificationProfile": {
           "mode": "list",
-          "value": "agent-data-sidebar-targeted"
+          "value": "codex-runs-sidebar-targeted"
         },
-        "model": "",
+        "model": "gpt-5.6-sol",
         "reasoningEffort": "high",
         "timeoutMinutes": 20
       },
@@ -309,7 +309,7 @@
         1400,
         0
       ],
-      "notes": "后端会自动追加经过验证的 LoopContext，因此这里的 Task 不再重复拼接上下文。",
+      "notes": "Goal Loop 会把目标和失败证据放入 LoopContext；节点使用 gpt-5.6-sol。Goal 字段保持为空以避开 Codex 0.130.0 的实验性 thread_goals 数据库兼容问题。",
       "notesInFlow": true
     },
     {
@@ -321,7 +321,7 @@
         "promptType": "define",
         "text": "={{ JSON.stringify({approvedSpecification:$('Finalize Approved Goal Plan').item.json.approvedSpecification, loopContext:$('Goal Loop').item.json.loopContext, codexSummary:$json.codexCoding.summary, changedFiles:$json.codexCoding.changedFiles, diff:$json.codexCoding.diffPreview, deterministicChecks:$json.codexCoding.checks}) }}",
         "options": {
-          "systemMessage": "你是 Talent-AI 自举 Demo 的严格高级代码评审 Agent。请根据用户已经批准的 goal、constraints 和 acceptanceCriteria 审查所提供的 diff 证据。重点检查：身份认证、项目与用户权限范围、浏览器没有直接访问 SQLite、合理复用现有 Agent API、向后兼容、侧边栏路由、展示字段是否有用、加载/空数据/错误状态，以及测试是否有实际意义。确定性检查是权威证据：任何 required 检查失败时都不得给出 pass。只返回一个 JSON 对象：{\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}。verdict 只能是 pass、revise 或 blocked。每个 issue 必须包含 id、severity（error 或 warning）、message，以及可选的 suggestion。JSON 键名和枚举值保持英文，说明内容使用中文。",
+          "systemMessage": "你是 Talent-AI 自举 Demo 的严格高级代码评审 Agent。请根据用户已经批准的 goal、constraints 和 acceptanceCriteria 审查所提供的 diff 证据。重点检查：数据只来自 n8n 的 codex_coding_run 与 codex_coding_turn 实体；接口使用项目范围的 workflow:read 权限；浏览器没有直接访问 SQLite；响应不暴露 worktreePath、codexSessionId、完整本地路径、原始提示词或未清理的错误堆栈；侧边栏路由、汇总卡片、状态分布、最近运行、加载/空数据/错误状态均完整；测试有实际意义。确定性检查是权威证据：任何 required 检查失败时都不得给出 pass。只返回一个 JSON 对象：{\"score\":85,\"verdict\":\"pass\",\"summary\":\"...\",\"issues\":[]}。verdict 只能是 pass、revise 或 blocked。每个 issue 必须包含 id、severity（error 或 warning）、message，以及可选的 suggestion。JSON 键名和枚举值保持英文，说明内容使用中文。",
           "maxIterations": 3
         }
       },
@@ -676,8 +676,8 @@
   "nodeGroups": [
     {
       "id": "62000000-0000-4000-8000-000000000018",
-      "name": "Approved Agent Data Coding Loop",
-      "description": "Only the user-approved specification enters this region. Loop rounds reuse one isolated worktree and Codex thread.",
+      "name": "Approved Codex Runs Coding Loop",
+      "description": "Only the user-approved Codex Runs specification enters this region. Loop rounds reuse one isolated worktree and Codex thread.",
       "nodeIds": [
         "62000000-0000-4000-8000-000000000010",
         "62000000-0000-4000-8000-000000000011",

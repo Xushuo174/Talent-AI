@@ -143,7 +143,18 @@ export class CodexCodingService {
 				error: null,
 			});
 			await this.runs.save(run);
-			if (request.goal) await this.appServer.setGoal(started.threadId, request.goal);
+			if (request.goal) {
+				try {
+					await this.appServer.setGoal(started.threadId, request.goal);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					if (!/goals feature is disabled|no such table: thread_goals/i.test(message)) throw error;
+					this.logger.warn('Codex Goal persistence is unavailable; using the turn prompt instead', {
+						error,
+						threadId: started.threadId,
+					});
+				}
+			}
 		} else {
 			if (run.repositoryId !== request.repositoryId) {
 				throw new UserError('A Codex Coding node cannot change repositories during one execution');
@@ -262,6 +273,7 @@ export class CodexCodingService {
 			`This is implementation round ${round}.`,
 			'Work only inside the current worktree.',
 			'Do not use the network. Do not wait for approval.',
+			...(request.goal?.trim() ? [`Stable goal: ${request.goal.trim()}`] : []),
 			request.task.trim(),
 		];
 		if (request.loopContext) {
