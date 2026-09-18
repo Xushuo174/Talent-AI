@@ -82,6 +82,8 @@ pnpm.cmd start
 
 参见 [Loop Engineering 工作流说明](workflows/loop-engineering/README.md)。
 
+Codex 自举 Demo 参见 [Codex Coding Agent 工作流说明](workflows/codex-coding/README.md)。06 工作流在自动检查通过后会启动 5680 隔离预览，等待人工操作页面，再由宿主 Git 脚本决定合并或保留 worktree；不会自动 push。
+
 ## Skill 文件夹导入
 
 Agent Builder 的 **Upload folder** 支持导入完整的文本型 Skill 包。系统读取根目录的 `SKILL.md`，并按路径保存以下文件组：

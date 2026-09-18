@@ -1,5 +1,5 @@
 {
-  "name": "06-Codex Runs Fast Loop Demo",
+  "name": "06-Codex Runs Loop + Human Preview",
   "nodes": [
     {
       "id": "62000000-0000-4000-8000-000000000001",
@@ -74,7 +74,13 @@
         450
       ],
       "notes": "首次运行前请选择现有的 DeepSeek 凭据。它服务于三个首次规划 Agent；用户要求修改时也用于精简重写方案。",
-      "notesInFlow": true
+      "notesInFlow": true,
+      "credentials": {
+        "deepSeekApi": {
+          "id": "lX7E7TDiph9t5iRL",
+          "name": "DeepSeek account"
+        }
+      }
     },
     {
       "id": "62000000-0000-4000-8000-000000000005",
@@ -347,7 +353,13 @@
         260
       ],
       "notes": "首次运行前请选择现有的 DeepSeek 凭据。",
-      "notesInFlow": true
+      "notesInFlow": true,
+      "credentials": {
+        "deepSeekApi": {
+          "id": "lX7E7TDiph9t5iRL",
+          "name": "DeepSeek account"
+        }
+      }
     },
     {
       "id": "62000000-0000-4000-8000-000000000014",
@@ -386,13 +398,15 @@
       "typeVersion": 1.3,
       "parameters": {
         "operation": "send",
-        "message": "={{ '自举开发已经完成。\\n\\n分支：' + String($json.artifact?.branchName ?? $json.bestResult?.artifact?.branchName ?? '请查看执行输出') + '\\n停止原因：' + String($json.stopReason ?? 'passed') + '\\n\\n合并前请检查本次执行中的分支、diff、修改文件和确定性验证结果。' }}",
+        "message": "={{ '人工预览已通过，代码已由宿主 Git 服务合并到当前主分支。\\n\\n分支：' + String($('Goal Loop').item.json.artifact.branchName) + '\\n合并提交：' + String(JSON.parse($json.stdout).mergeCommit ?? JSON.parse($json.stdout).commit) + '\\n\\n没有执行 push。当前 5678 进程仍在运行旧内存状态；本次工作流结束后，请双击“关闭n8n.cmd”再双击“启动n8n.cmd”，然后刷新页面。' }}",
         "options": {}
       },
       "position": [
-        1400,
-        -270
-      ]
+        2500,
+        -440
+      ],
+      "notes": "只有人工预览批准且确定性 Git 提升成功后才会到达这里。",
+      "notesInFlow": true
     },
     {
       "id": "62000000-0000-4000-8000-000000000017",
@@ -407,6 +421,132 @@
       "position": [
         1400,
         270
+      ]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000130",
+      "name": "Start Worktree Preview",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{ 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"E:\\\\CodexProject\\\\Talent-AI\\\\scripts\\\\start-codex-worktree-preview.ps1\" -WorktreePath \"' + $json.artifact.worktreePath + '\" -Port 5680 -RunnerPort 5681 -ProjectId \"szye68Ld7LyS6fIe\"' }}"
+      },
+      "position": [
+        1400,
+        -360
+      ],
+      "notes": "平台宿主从已通过自动评审的 worktree 构建前端，并使用数据库副本在 5680 启动隔离预览。不会修改 5678 主实例或主数据库。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000131",
+      "name": "Review Worktree Preview",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "sendAndWait",
+        "message": "={{ '自动检查已经通过，隔离预览已启动。\\n\\n预览地址：' + JSON.parse($json.stdout).previewUrl + '\\n分支：' + String($('Goal Loop').item.json.artifact.branchName) + '\\n修改文件：\\n- ' + $('Goal Loop').item.json.artifact.changedFiles.join('\\n- ') + '\\n\\n请打开预览地址，进入 Codex Runs 页面，点击“Refresh”，确认按钮、加载状态和最近刷新时间显示正常。确认后再批准合并。' }}",
+        "responseType": "approval",
+        "blockUserInput": true,
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "预览通过并合并",
+            "buttonApprovalStyle": "primary",
+            "disapproveLabel": "拒绝合并",
+            "buttonDisapprovalStyle": "secondary"
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        1690,
+        -360
+      ],
+      "webhookId": "talent-ai-codex-worktree-preview-approval",
+      "notes": "第二个人工关卡。用户实际操作隔离预览后，才允许宿主 Git 服务提交并合并已审查的同一份补丁。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000132",
+      "name": "Preview Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "62000000-0000-4000-8000-000000000133",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1960,
+        -360
+      ]
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000134",
+      "name": "Promote Worktree Changes",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{ 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"E:\\\\CodexProject\\\\Talent-AI\\\\scripts\\\\promote-codex-worktree.ps1\" -WorktreePath \"' + $('Goal Loop').item.json.artifact.worktreePath + '\" -BaseCommit \"' + $('Goal Loop').item.json.artifact.baseCommit + '\" -BranchName \"' + $('Goal Loop').item.json.artifact.branchName + '\" -RunId \"' + $('Goal Loop').item.json.artifact.runId + '\" -ApprovalConfirmed' }}"
+      },
+      "position": [
+        2230,
+        -440
+      ],
+      "notes": "确定性的宿主 Git 提升步骤：校验主仓库干净、基线未变化、补丁与预览完全一致，然后提交 worktree 分支并 --no-ff 合并。不 push。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000135",
+      "name": "Stop Rejected Preview",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{ 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"E:\\\\CodexProject\\\\Talent-AI\\\\scripts\\\\stop-codex-worktree-preview.ps1\" -WorktreePath \"' + $('Goal Loop').item.json.artifact.worktreePath + '\"' }}"
+      },
+      "position": [
+        2230,
+        -280
+      ],
+      "notes": "拒绝时只停止 5680 预览，保留 worktree 和分支供检查或后续修复。",
+      "notesInFlow": true
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000136",
+      "name": "Preview Rejected",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "parameters": {
+        "operation": "send",
+        "message": "={{ '人工预览未通过，未执行合并。\\n\\n分支：' + String($('Goal Loop').item.json.artifact.branchName) + '\\nworktree：' + String($('Goal Loop').item.json.artifact.worktreePath) + '\\n\\n预览服务已停止，代码现场已保留。' }}",
+        "options": {}
+      },
+      "position": [
+        2500,
+        -280
       ]
     }
   ],
@@ -541,7 +681,7 @@
         ],
         [
           {
-            "node": "Completed Result",
+            "node": "Start Worktree Preview",
             "type": "main",
             "index": 0
           }
@@ -671,6 +811,68 @@
           }
         ]
       ]
+    },
+    "Start Worktree Preview": {
+      "main": [
+        [
+          {
+            "node": "Review Worktree Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Worktree Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview Approved?": {
+      "main": [
+        [
+          {
+            "node": "Promote Worktree Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop Rejected Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Promote Worktree Changes": {
+      "main": [
+        [
+          {
+            "node": "Completed Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Rejected Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodeGroups": [
@@ -700,5 +902,6 @@
   },
   "active": false,
   "pinData": {},
-  "tags": []
+  "tags": [],
+  "id": "hH1Gx1hEdZaj5Zf4"
 }
