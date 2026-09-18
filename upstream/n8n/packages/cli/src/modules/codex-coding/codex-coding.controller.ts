@@ -1,5 +1,6 @@
+import { ListCodexRunsQueryDto } from '@n8n/api-types';
 import type { AuthenticatedRequest } from '@n8n/db';
-import { Get, Param, ProjectScope, RestController } from '@n8n/decorators';
+import { Get, Param, ProjectScope, Query, RestController } from '@n8n/decorators';
 import type { Response } from 'express';
 import { readFile } from 'node:fs/promises';
 
@@ -33,5 +34,15 @@ export class CodexCodingController {
 		if (!filePath) throw new NotFoundError('Codex diff artifact was not found');
 		res.type('text/x-diff');
 		return await readFile(filePath, 'utf8');
+	}
+
+	@Get('/:projectId/runs')
+	@ProjectScope('workflow:read')
+	async overview(
+		req: AuthenticatedRequest<{ projectId: string }>,
+		_res: Response,
+		@Query query: ListCodexRunsQueryDto,
+	) {
+		return await this.service.getRunsOverview(req.params.projectId, query.limit, query.status);
 	}
 }

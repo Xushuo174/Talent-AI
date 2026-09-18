@@ -8,6 +8,7 @@ export type * from './user';
 export type * from './consent';
 export type * from './api-keys';
 export type * from './community-node-types';
+export * from './codex-runs';
 export type * from './quick-connect';
 export * from './agents/index';
 export * from './instance-registry-types';

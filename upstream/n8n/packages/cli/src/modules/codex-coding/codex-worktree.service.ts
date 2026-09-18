@@ -245,9 +245,9 @@ export class CodexWorktreeService {
 		await mkdir(artifactRoot, { recursive: true });
 		await writeFile(path.join(artifactRoot, artifactId), fullDiff, 'utf8');
 		return {
-			changedFiles,
-			diffStat: fullStat.trim(),
-			diffPreview: fullDiff.slice(0, 20_000),
+			changedFiles: changedFiles.slice(0, 20),
+			diffStat: fullStat.trim().slice(0, 2_000),
+			diffPreview: fullDiff.slice(0, 2_000),
 			diffArtifactId: artifactId,
 		};
 	}

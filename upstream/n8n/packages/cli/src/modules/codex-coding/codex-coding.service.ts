@@ -1,5 +1,6 @@
 import { Logger } from '@n8n/backend-common';
 import { Service } from '@n8n/di';
+import type { CodexRunStatus } from '@n8n/api-types';
 import { randomUUID } from 'node:crypto';
 import type {
 	CodexCodingInvocationContext,
@@ -97,6 +98,10 @@ export class CodexCodingService {
 		return turn ? this.worktrees.artifactPath(artifactId) : undefined;
 	}
 
+	async getRunsOverview(projectId: string, limit: number, status?: CodexRunStatus) {
+		return await this.runs.getOverview(projectId, { limit, status });
+	}
+
 	async execute(request: CodexCodingRequestV1, invocation: CodexCodingInvocationContext) {
 		if (request.version !== 1) throw new UserError('Unsupported Codex Coding request version');
 		if (!request.task.trim()) throw new UserError('Codex Coding task cannot be empty');
@@ -111,10 +116,7 @@ export class CodexCodingService {
 		request: CodexCodingRequestV1,
 		invocation: CodexCodingInvocationContext,
 	): Promise<CodexCodingResultV1> {
-		let run = await this.runs.findForInvocation(
-			invocation.workflowExecutionId,
-			invocation.nodeId,
-		);
+		let run = await this.runs.findForInvocation(invocation.workflowExecutionId, invocation.nodeId);
 
 		if (!run) {
 			const workspace = await this.worktrees.prepare({
@@ -160,11 +162,7 @@ export class CodexCodingService {
 				throw new UserError('A Codex Coding node cannot change repositories during one execution');
 			}
 			if (!run.codexThreadId) throw new OperationalError('The Codex run has no thread id');
-			await this.appServer.resumeThread(
-				run.codexThreadId,
-				run.worktreePath,
-				request.model,
-			);
+			await this.appServer.resumeThread(run.codexThreadId, run.worktreePath, request.model);
 		}
 
 		const threadId = run.codexThreadId;
@@ -214,7 +212,11 @@ export class CodexCodingService {
 			this.logger.warn('Codex coding turn failed', { error: caughtError, runId: run.id, round });
 		}
 
-		const diff = await this.worktrees.collectDiff(run.worktreePath, run.id, turnId || `round-${round}`);
+		const diff = await this.worktrees.collectDiff(
+			run.worktreePath,
+			run.id,
+			turnId || `round-${round}`,
+		);
 		if (status === 'completed' && diff.changedFiles.length === 0) {
 			checks.unshift({
 				id: 'codex-source-changes',

@@ -97,4 +97,5 @@ export enum VIEWS {
 	RESOLVERS = 'Resolvers',
 	GIT_CONNECTIONS_SETTINGS = 'GitConnectionsSettings',
 	RESOURCE_CENTER = 'ResourceCenter',
+	CODEX_RUNS = 'CodexRuns',
 }

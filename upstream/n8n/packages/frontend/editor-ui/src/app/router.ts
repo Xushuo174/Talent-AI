@@ -119,6 +119,7 @@ const SettingsAiGatewayView = async () =>
 	await import('@/features/ai/gateway/views/SettingsAiGatewayView.vue');
 const ResourceCenterView = async () =>
 	await import('@/experiments/resourceCenter/views/ResourceCenterView.vue');
+const CodexRunsView = async () => await import('@/features/codexRuns/CodexRunsView.vue');
 
 const SecuritySettingsView = async () =>
 	await import('@/features/settings/security/SecuritySettings.vue');
@@ -333,6 +334,14 @@ export const routes: RouteRecordRaw[] = [
 			void waitForPendingFeatureFlags(posthogStore).then(() => {
 				allowResourceCenterRoute(posthogStore, next);
 			});
+		},
+	},
+	{
+		path: '/codex-runs/:projectId',
+		name: VIEWS.CODEX_RUNS,
+		component: CodexRunsView,
+		meta: {
+			middleware: ['authenticated'],
 		},
 	},
 

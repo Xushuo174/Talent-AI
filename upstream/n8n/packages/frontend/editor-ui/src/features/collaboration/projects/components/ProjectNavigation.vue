@@ -8,6 +8,7 @@ import { N8nIcon, N8nMenuItem, N8nText } from '@n8n/design-system';
 import type { IMenuItem } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useProjectsStore } from '../projects.store';
 import { DEFAULT_PROJECT_ICON } from '../projects.constants';
 import type { ProjectListItem } from '../projects.types';
@@ -31,6 +32,7 @@ type Props = {
 const props = defineProps<Props>();
 
 const locale = useI18n();
+const route = useRoute();
 const globalEntityCreation = useGlobalEntityCreation();
 
 const projectsStore = useProjectsStore();
@@ -76,6 +78,22 @@ const home = computed<IMenuItem>(() => ({
 	icon: 'house',
 	route: {
 		to: { name: VIEWS.HOMEPAGE },
+	},
+}));
+
+const codexRunsProjectId = computed(
+	() => projectsStore.currentProjectId ?? projectsStore.personalProject?.id,
+);
+
+const codexRuns = computed<IMenuItem>(() => ({
+	id: 'codex-runs',
+	label: locale.baseText('codexRuns.title'),
+	icon: 'terminal',
+	route: {
+		to: {
+			name: VIEWS.CODEX_RUNS,
+			params: { projectId: codexRunsProjectId.value },
+		},
 	},
 }));
 
@@ -170,6 +188,13 @@ onBeforeUnmount(() => {
 				:compact="props.collapsed"
 				:active="activeTabId === 'home'"
 				data-test-id="project-home-menu-item"
+			/>
+			<N8nMenuItem
+				v-if="codexRunsProjectId"
+				:item="codexRuns"
+				:compact="props.collapsed"
+				:active="route.name === VIEWS.CODEX_RUNS"
+				data-test-id="project-codex-runs-menu-item"
 			/>
 			<N8nMenuItem
 				v-if="projectsStore.isTeamProjectFeatureEnabled || isFoldersFeatureEnabled"
