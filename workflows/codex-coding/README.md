@@ -23,7 +23,7 @@ Flow:
 11. `Review Worktree Preview` sends the preview link to chat and waits. Open the link, click **Refresh**, and verify the loading state and latest refresh time. The main instance on `5678` and the main database are not changed by this preview.
 12. **预览通过并合并** stops the preview, verifies that the patch is byte-for-byte the version that was previewed, commits the isolated branch, and merges it into the current local branch with `--no-ff`. It never pushes. **拒绝合并** stops the preview and preserves the branch and worktree.
 
-The workflow is inactive and has not been executed. Before the first run:
+A fresh import is inactive by default. The workflow has been completed locally through Codex execution and the human worktree preview gate; runtime records and credentials are intentionally not part of the repository. Before running it on another machine:
 
 - restart n8n through `启动n8n.cmd` so the new verification profile is loaded;
 - import the workflow JSON;

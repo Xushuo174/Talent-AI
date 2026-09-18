@@ -24,7 +24,7 @@
 
 ## 零、验证原生 Loop Region
 
-`04-native-loop.json` 面向已包含 Talent-AI 源码改动的 n8n 2.38.7（本地基线 `fa34d4cd`）。导入后从 Manual Trigger 完整运行，预期：
+`04-native-loop.json` 面向已包含 Talent-AI 源码改动的 n8n 2.38.7（上游基线 `a2d0f7638bbb7582e33a4dfa1537eeb8ff066788`）。导入后从 Manual Trigger 完整运行，预期：
 
 1. `Pre-Loop Input` 只执行一次；
 2. Goal Loop 第一轮从 `iterate` 输出；
@@ -36,7 +36,7 @@
 
 固定 Code 节点只充当可重复的 Writer 与测试夹具。它不保存轮次、不决定继续或停止，也不构造下一轮上下文，因此 04 验证的是平台原生控制语义。要替换为真实场景，只需把该节点换成业务 Agent、工具、确定性测试和 Reviewer，并保持 Loop Evaluation 的字段协议。
 
-2026-09-17 本地源码验证已通过：04 在真实 `WorkflowExecute` 调度器中第二轮完成，Pre-Loop 只执行一次，失败证据进入第二轮上下文，且每轮状态已写入 execution metadata，供 Round Timeline 读取。该结果不包含浏览器导入和真实模型调用。
+2026-09-18 重新执行本地源码验证：04 在真实 `WorkflowExecute` 调度器中第二轮完成，Pre-Loop 只执行一次，失败证据进入第二轮上下文，且每轮状态已写入 execution metadata，供 Round Timeline 读取。该结果不包含真实模型调用。
 
 也可以选中已有的单入口、单出口业务子图，点击选择工具栏中的 **Create Loop Region**。平台会插入 Goal Loop 和 Loop Evaluation、建立反馈边，并把原外部出口接到 `completed`。多分支必须先 Merge；非法选择会显示具体提示。
 
